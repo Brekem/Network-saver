@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Universal Router Mode</string>
+    <string name="device_admin_description">Permite convertir el teléfono en un router dedicado: modo kiosco, restricción de apps y políticas de ahorro de energía.</string>
+
+    <string name="indicator_active">Modo Router Activo</string>
+    <string name="indicator_incomplete">Optimización Incompleta</string>
+    <string name="indicator_inactive">Modo Router desactivado</string>
+    <string name="indicator_active_sub">Compartiendo internet con el mínimo consumo</string>
+    <string name="indicator_incomplete_sub">Toca las filas en rojo para completar los pasos</string>
+    <string name="indicator_inactive_sub">Pulsa ACTIVAR para convertir el teléfono en router</string>
+
+    <string name="section_connection">Conexión compartida</string>
+    <string name="section_status">Panel de estado</string>
+    <string name="section_apps">Aplicaciones</string>
+    <string name="section_device_owner">Device Owner</string>
+    <string name="section_log">Último resultado</string>
+
+    <string name="usb_connected">USB conectado</string>
+    <string name="usb_not_connected">Sin cable USB: se usará la Zona WiFi</string>
+    <string name="usb_tethering_active">USB Tethering activo</string>
+    <string name="btn_usb_tethering">Activar USB Tethering</string>
+    <string name="btn_hotspot">Abrir Zona WiFi</string>
+
+    <string name="btn_activate">ACTIVAR MODO ROUTER</string>
+    <string name="btn_restore">RESTAURAR</string>
+    <string name="btn_select_apps">Seleccionar apps a restringir</string>
+    <string name="btn_background_manager">Gestión de segundo plano del fabricante</string>
+    <string name="selected_apps">%1$d apps seleccionadas</string>
+
+    <string name="level_standard">Modo estándar (app normal)</string>
+    <string name="level_admin">Administrador de dispositivo (sin Device Owner)</string>
+    <string name="level_owner">Device Owner: funciones avanzadas disponibles</string>
+    <string name="device_owner_hint">Para habilitar el modo dedicado (kiosco, ocultar apps, bloquear ajustes e instalaciones) configura la app como Device Owner en un teléfono restablecido y sin cuentas:\n\nadb shell dpm set-device-owner com.universalrouter.mode/.admin.RouterDeviceAdminReceiver</string>
+
+    <string name="do_kiosk">Modo kiosco (dispositivo dedicado)</string>
+    <string name="do_suspend">Impedir ejecución de apps seleccionadas</string>
+    <string name="do_hide">Ocultar apps seleccionadas</string>
+    <string name="do_block_settings">Bloquear configuraciones no autorizadas</string>
+    <string name="do_block_install">Restringir instalación de aplicaciones</string>
+    <string name="do_power">Políticas de ahorro de energía</string>
+    <string name="do_options_hint">Se aplican al pulsar ACTIVAR y se retiran con RESTAURAR.</string>
+    <string name="btn_remove_owner">Quitar Device Owner</string>
+    <string name="remove_owner_title">¿Quitar Device Owner?</string>
+    <string name="remove_owner_message">Se retirarán todas las políticas y la app volverá a funcionar como aplicación normal. Para volver a ser Device Owner habrá que restablecer el teléfono.</string>
+
+    <string name="pick_apps_title">Apps a restringir</string>
+    <string name="pick_apps_empty">No hay aplicaciones que se puedan restringir.</string>
+    <string name="system_app_suffix">(sistema)</string>
+    <string name="ok">Guardar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="remove">Quitar</string>
+    <string name="permission_denied">Permiso denegado</string>
+</resources>

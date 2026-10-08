@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material Design 3, siempre en modo oscuro (menos consumo en pantallas OLED). -->
+    <style name="Theme.UniversalRouter" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/router_primary</item>
+        <item name="colorOnPrimary">@color/router_on_primary</item>
+        <item name="colorPrimaryContainer">@color/router_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/router_on_primary_container</item>
+        <item name="colorSecondary">@color/router_secondary</item>
+        <item name="android:colorBackground">@color/router_background</item>
+        <item name="colorSurface">@color/router_surface</item>
+        <item name="colorOnSurface">@color/router_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/router_on_surface_variant</item>
+        <item name="android:statusBarColor">@color/router_background</item>
+        <item name="android:navigationBarColor">@color/router_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
