@@ -3,7 +3,6 @@ name: Compilar APK
 on:
   push:
     branches: ["**"]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -54,9 +53,20 @@ jobs:
           name: UniversalRouterMode-apk
           path: dist/UniversalRouterMode.apk
 
+      # Publica (o actualiza) el Release vX.Y.Z según versionName en cada push.
+      - name: Leer versión
+        id: version
+        run: echo "name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
+
       - name: Publicar Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: Universal Router Mode ${{ steps.version.outputs.name }}
           files: dist/UniversalRouterMode.apk
-          generate_release_notes: true
+          make_latest: true
+          body: |
+            Descarga **UniversalRouterMode.apk** (abajo, en *Assets*) e instálalo en el teléfono.
+            Android pedirá permitir la instalación de apps de origen desconocido.
