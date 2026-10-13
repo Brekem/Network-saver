@@ -160,6 +160,114 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- REFRESCO 5G/4G (SHIZUKU) -->
+            <TextView
+                style="@style/SectionTitle"
+                android:text="@string/section_cycle" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Filled"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swCycle"
+                        style="@style/OwnerSwitch"
+                        android:text="@string/cycle_toggle"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:id="@+id/cycleShizukuState"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        tools:text="Shizuku: listo" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnShizuku"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        tools:text="Dar permiso a Shizuku" />
+
+                    <TextView
+                        android:id="@+id/cycleStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        tools:text="En 5G · próximo cambio a las 15:30" />
+
+                    <TextView
+                        android:id="@+id/labelInterval"
+                        style="@style/SliderLabel"
+                        tools:text="Cada 30 min en 5G" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/sliderInterval"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:stepSize="5"
+                        android:valueFrom="5"
+                        android:valueTo="120" />
+
+                    <TextView
+                        android:id="@+id/labelDuration"
+                        style="@style/SliderLabel"
+                        tools:text="5 s en 4G" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/sliderDuration"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:stepSize="1"
+                        android:valueFrom="3"
+                        android:valueTo="60" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swProtect"
+                        style="@style/OwnerSwitch"
+                        android:text="@string/cycle_protect" />
+
+                    <TextView
+                        android:id="@+id/labelThreshold"
+                        style="@style/SliderLabel"
+                        tools:text="Se considera jugando por encima de 15 KB/s" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/sliderThreshold"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:stepSize="5"
+                        android:valueFrom="5"
+                        android:valueTo="200" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCycleNow"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/cycle_now" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnBattery"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/cycle_battery" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- PANEL DE ESTADO -->
             <TextView
                 style="@style/SectionTitle"

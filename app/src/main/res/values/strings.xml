@@ -51,4 +51,21 @@
     <string name="cancel">Cancelar</string>
     <string name="remove">Quitar</string>
     <string name="permission_denied">Permiso denegado</string>
+
+    <string name="section_cycle">Refresco de red 5G/4G</string>
+    <string name="cycle_toggle">Refresco automático (loop infinito)</string>
+    <string name="cycle_protect">Protección para jugar: no cambiar si hay tráfico</string>
+    <string name="cycle_now">Probar ahora</string>
+    <string name="cycle_battery">Quitar restricciones de batería (recomendado)</string>
+    <string name="cycle_interval">Cada %1$d min en 5G</string>
+    <string name="cycle_duration">%1$d s en 4G</string>
+    <string name="cycle_threshold">Jugando = más de %1$d KB/s (tráfico actual: %2$d KB/s)</string>
+    <string name="shizuku_not_installed">Shizuku: no instalado</string>
+    <string name="shizuku_not_running">Shizuku: instalado pero no iniciado</string>
+    <string name="shizuku_no_permission">Shizuku: falta dar permiso a esta app</string>
+    <string name="shizuku_ready">Shizuku: listo ✅</string>
+    <string name="shizuku_install">Instalar Shizuku</string>
+    <string name="shizuku_open">Abrir Shizuku para iniciarlo</string>
+    <string name="shizuku_grant">Dar permiso a Shizuku</string>
+    <string name="cycle_needs_shizuku">Primero activa Shizuku y dale permiso a la app</string>
 </resources>

@@ -1,6 +1,9 @@
 package com.universalrouter.mode.ui
 
 import com.universalrouter.mode.admin.PermissionLevel
+import com.universalrouter.mode.cycle.CycleConfig
+import com.universalrouter.mode.cycle.CycleStatus
+import com.universalrouter.mode.shizuku.ShizukuState
 import com.universalrouter.mode.data.DeviceOwnerOptions
 import com.universalrouter.mode.helpers.SettingsTarget
 
@@ -31,6 +34,11 @@ data class RouterUiState(
     val deviceOwnerOptions: DeviceOwnerOptions = DeviceOwnerOptions(),
     val busy: Boolean = false,
     val log: List<String> = emptyList(),
+    val shizukuState: ShizukuState = ShizukuState.NOT_INSTALLED,
+    val cycleEnabled: Boolean = false,
+    val cycleConfig: CycleConfig = CycleConfig(),
+    val cycleStatus: CycleStatus = CycleStatus(),
+    val batteryUnrestricted: Boolean = false,
 ) {
     val isDeviceOwner get() = permissionLevel == PermissionLevel.DEVICE_OWNER
 }

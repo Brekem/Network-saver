@@ -51,6 +51,27 @@ Son restricciones del sistema, no de la app; ninguna app sin root ni firma de si
 - **Ahorro de energía**: no existe API pública para activarlo.
 - **Bluetooth en Android 13+**: `BluetoothAdapter.disable()` no funciona para apps normales.
 
+## Refresco de red 5G/4G (loop infinito, requiere Shizuku)
+
+Toggle **Refresco automático**: cada 30 minutos (ajustable) el teléfono pasa a 4G durante 5 segundos (ajustable) y vuelve a 5G, en bucle infinito y en segundo plano, con la pantalla apagada. Sirve para mantener fresca la conexión que se comparte por hotspot.
+
+- **Protección para jugar**: antes de cada cambio se mide el tráfico del teléfono (incluye el del hotspot). Si supera el umbral (15 KB/s por defecto), el cambio se pospone y se vuelve a comprobar cada minuto, así no corta una partida en curso. «Probar ahora» fuerza el cambio.
+- Si la app se cierra a mitad de un ciclo, al volver restaura 5G automáticamente.
+- Se muestra una notificación fija (obligatoria en Android para servicios en segundo plano) con botón **Detener**.
+
+### Por qué necesita Shizuku
+Cambiar el modo de red requiere el permiso `MODIFY_PHONE_STATE`, que Android solo concede a apps del sistema (ni siquiera a Device Owner). [Shizuku](https://shizuku.rikka.app/) es una app gratuita que permite a otras apps usar los permisos de ADB **sin root**. Esta función usa una interfaz interna de Android (`ITelephony#setAllowedNetworkTypesForReason`, la misma que usa Ajustes › Modo de red), por lo que es la única parte de la app que no se limita a APIs públicas.
+
+### Activar Shizuku (Samsung, sin PC)
+1. Instala **Shizuku** desde Play Store.
+2. Ajustes › Acerca del teléfono › Información de software › toca 7 veces «Número de compilación» (activa Opciones de desarrollador).
+3. Conéctate a cualquier WiFi (requisito de Android para la depuración inalámbrica; puede ser otra red, solo para este paso).
+4. Abre Shizuku › «Iniciar mediante depuración inalámbrica» › «Emparejamiento» y sigue los pasos (el código de emparejamiento se escribe en la notificación de Shizuku).
+5. Pulsa **Iniciar** en Shizuku. Vuelve a Universal Router Mode › **Dar permiso a Shizuku** › Permitir.
+6. Recomendado: **Quitar restricciones de batería** para que One UI no detenga el loop.
+
+Después de cada reinicio del teléfono hay que repetir el paso 5 (pulsar Iniciar en Shizuku).
+
 ## Modo Device Owner (opcional)
 
 La app detecta automáticamente su nivel de privilegios (estándar, administrador o Device Owner) y adapta las funciones.
@@ -93,6 +114,12 @@ app/src/main/java/com/universalrouter/mode/
 │   ├── TetheringHelper.kt           USB conectado, Zona WiFi, USB tethering
 │   ├── BluetoothHelper.kt · DndHelper.kt · BrightnessHelper.kt
 │   ├── PowerSaverHelper.kt · AppRestrictionHelper.kt
+├── cycle/
+│   ├── NetworkCycleService.kt       Loop 5G→4G→5G en primer plano
+│   ├── CycleSettings.kt · NetworkCycleState.kt
+├── shizuku/
+│   ├── ShizukuManager.kt            Estado, permiso y conexión con Shizuku
+│   └── NetworkShellService.kt       Corre con permisos de shell vía Shizuku
 └── admin/
     ├── RouterDeviceAdminReceiver.kt DeviceAdminReceiver
     └── DeviceOwnerManager.kt        Políticas con DevicePolicyManager

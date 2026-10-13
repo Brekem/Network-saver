@@ -4,7 +4,14 @@ import android.app.Application
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.os.PowerManager
 import com.universalrouter.mode.admin.PermissionLevel
+import com.universalrouter.mode.cycle.CycleConfig
+import com.universalrouter.mode.cycle.CycleSettings
+import com.universalrouter.mode.cycle.NetworkCycleService
+import com.universalrouter.mode.cycle.NetworkCycleState
+import com.universalrouter.mode.shizuku.ShizukuManager
+import com.universalrouter.mode.shizuku.ShizukuState
 import com.universalrouter.mode.data.DeviceOwnerOptions
 import com.universalrouter.mode.data.RouterPreferences
 import com.universalrouter.mode.domain.PassResult
@@ -39,6 +46,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val device = DeviceDetector.detect()
     private val prefs = RouterPreferences(app)
     private val controller = RouterModeController(app, device, prefs)
+    private val cycleSettings = CycleSettings(app)
 
     private val _state = MutableStateFlow(RouterUiState())
     val state: StateFlow<RouterUiState> = _state.asStateFlow()
@@ -56,6 +64,43 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         requestRefresh()
+        viewModelScope.launch {
+            NetworkCycleState.status.collect { status -> _state.update { it.copy(cycleStatus = status) } }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Refresco 5G/4G
+    // ------------------------------------------------------------------
+
+    /** Devuelve false si no se pudo activar (Shizuku no listo). */
+    fun setCycleEnabled(enabled: Boolean): Boolean {
+        val app = getApplication<Application>()
+        if (enabled) {
+            if (ShizukuManager.state(app) != ShizukuState.READY) {
+                requestRefresh()
+                return false
+            }
+            NetworkCycleService.start(app)
+        } else {
+            NetworkCycleService.stop(app)
+        }
+        _state.update { it.copy(cycleEnabled = enabled) }
+        return true
+    }
+
+    fun runCycleNow(): Boolean {
+        val app = getApplication<Application>()
+        if (ShizukuManager.state(app) != ShizukuState.READY) return false
+        NetworkCycleService.runNow(app)
+        _state.update { it.copy(cycleEnabled = true) }
+        return true
+    }
+
+    fun setCycleConfig(config: CycleConfig) {
+        if (config == cycleSettings.config) return
+        cycleSettings.config = config
+        _state.update { it.copy(cycleConfig = config) }
     }
 
     // ------------------------------------------------------------------
@@ -364,6 +409,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 selectedAppsCount = selected.size,
                 deviceOwnerOptions = prefs.deviceOwnerOptions,
                 busy = phase != Phase.IDLE,
+                shizukuState = ShizukuManager.state(app),
+                cycleEnabled = cycleSettings.enabled,
+                cycleConfig = cycleSettings.config,
+                batteryUnrestricted = requireNotNull(app.getSystemService(PowerManager::class.java))
+                    .isIgnoringBatteryOptimizations(app.packageName),
                 log = newLog ?: it.log,
             )
         }

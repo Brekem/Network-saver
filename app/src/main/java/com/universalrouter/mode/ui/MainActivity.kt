@@ -2,7 +2,12 @@ package com.universalrouter.mode.ui
 
 import android.app.ActivityManager
 import android.bluetooth.BluetoothAdapter
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -22,6 +27,9 @@ import com.universalrouter.mode.databinding.ActivityMainBinding
 import com.universalrouter.mode.databinding.ItemStatusRowBinding
 import com.universalrouter.mode.domain.PendingAction
 import com.universalrouter.mode.helpers.OemSettingsNavigator
+import com.universalrouter.mode.shizuku.ShizukuManager
+import com.universalrouter.mode.shizuku.ShizukuState
+import rikka.shizuku.Shizuku
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -40,6 +48,9 @@ class MainActivity : AppCompatActivity() {
             // onResume continuará el flujo.
         }
 
+    private val shizukuPermissionListener =
+        Shizuku.OnRequestPermissionResultListener { _, _ -> viewModel.requestRefresh() }
+
     private val bluetoothEnableLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
 
@@ -49,6 +60,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupListeners()
+        setupCycleListeners()
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -64,6 +77,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+        super.onDestroy()
     }
 
     override fun onResume() {
@@ -95,6 +113,113 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    private fun setupCycleListeners() = with(binding) {
+        swCycle.setOnCheckedChangeListener { _, checked ->
+            if (bindingOptions) return@setOnCheckedChangeListener
+            if (checked) requestNotificationPermission()
+            if (!viewModel.setCycleEnabled(checked)) {
+                bindingOptions = true
+                swCycle.isChecked = false
+                bindingOptions = false
+                Snackbar.make(root, R.string.cycle_needs_shizuku, Snackbar.LENGTH_LONG).show()
+            }
+        }
+        btnCycleNow.setOnClickListener {
+            requestNotificationPermission()
+            if (!viewModel.runCycleNow()) {
+                Snackbar.make(root, R.string.cycle_needs_shizuku, Snackbar.LENGTH_LONG).show()
+            }
+        }
+        btnShizuku.setOnClickListener { onShizukuButton() }
+        btnBattery.setOnClickListener {
+            try {
+                startActivity(
+                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
+                )
+            } catch (e: Exception) {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            }
+        }
+        swProtect.setOnCheckedChangeListener { _, checked ->
+            if (bindingOptions) return@setOnCheckedChangeListener
+            viewModel.setCycleConfig(viewModel.state.value.cycleConfig.copy(protectGaming = checked))
+        }
+        sliderInterval.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.setCycleConfig(viewModel.state.value.cycleConfig.copy(intervalMinutes = value.toInt()))
+        }
+        sliderDuration.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.setCycleConfig(viewModel.state.value.cycleConfig.copy(durationSeconds = value.toInt()))
+        }
+        sliderThreshold.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) viewModel.setCycleConfig(viewModel.state.value.cycleConfig.copy(busyThresholdKbps = value.toInt()))
+        }
+    }
+
+    private fun onShizukuButton() {
+        when (viewModel.state.value.shizukuState) {
+            ShizukuState.NOT_INSTALLED -> {
+                val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${ShizukuManager.PACKAGE}"))
+                try {
+                    startActivity(market)
+                } catch (e: Exception) {
+                    startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/")),
+                    )
+                }
+            }
+            ShizukuState.NOT_RUNNING ->
+                packageManager.getLaunchIntentForPackage(ShizukuManager.PACKAGE)?.let { startActivity(it) }
+            ShizukuState.NO_PERMISSION -> ShizukuManager.requestPermission()
+            ShizukuState.READY -> Unit
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun renderCycle(state: RouterUiState) = with(binding) {
+        cycleShizukuState.setText(
+            when (state.shizukuState) {
+                ShizukuState.NOT_INSTALLED -> R.string.shizuku_not_installed
+                ShizukuState.NOT_RUNNING -> R.string.shizuku_not_running
+                ShizukuState.NO_PERMISSION -> R.string.shizuku_no_permission
+                ShizukuState.READY -> R.string.shizuku_ready
+            },
+        )
+        btnShizuku.isVisible = state.shizukuState != ShizukuState.READY
+        btnShizuku.setText(
+            when (state.shizukuState) {
+                ShizukuState.NOT_INSTALLED -> R.string.shizuku_install
+                ShizukuState.NOT_RUNNING -> R.string.shizuku_open
+                else -> R.string.shizuku_grant
+            },
+        )
+        val c = state.cycleConfig
+        val st = state.cycleStatus
+        swCycle.isChecked = state.cycleEnabled
+        swProtect.isChecked = c.protectGaming
+        if (sliderInterval.value.toInt() != c.intervalMinutes) sliderInterval.value = c.intervalMinutes.toFloat()
+        if (sliderDuration.value.toInt() != c.durationSeconds) sliderDuration.value = c.durationSeconds.toFloat()
+        if (sliderThreshold.value.toInt() != c.busyThresholdKbps) sliderThreshold.value = c.busyThresholdKbps.toFloat()
+        labelInterval.text = getString(R.string.cycle_interval, c.intervalMinutes)
+        labelDuration.text = getString(R.string.cycle_duration, c.durationSeconds)
+        labelThreshold.text = getString(R.string.cycle_threshold, c.busyThresholdKbps, st.trafficKbps)
+        labelThreshold.isVisible = c.protectGaming
+        sliderThreshold.isVisible = c.protectGaming
+        cycleStatus.text = buildString {
+            append(if (state.cycleEnabled) st.phase else "Detenido")
+            if (st.lastResult.isNotEmpty()) append("\nÚltimo: ").append(st.lastResult)
+            if (st.cyclesDone > 0) append("\nRefrescos en esta sesión: ").append(st.cyclesDone)
+        }
+        btnBattery.isVisible = !state.batteryUnrestricted
     }
 
     // ------------------------------------------------------------------
@@ -144,6 +269,7 @@ class MainActivity : AppCompatActivity() {
         deviceOwnerHint.isVisible = !state.isDeviceOwner
         deviceOwnerOptions.isVisible = state.isDeviceOwner
         bindingOptions = true
+        renderCycle(state)
         state.deviceOwnerOptions.let {
             swKiosk.isChecked = it.kiosk
             swSuspend.isChecked = it.suspendApps
