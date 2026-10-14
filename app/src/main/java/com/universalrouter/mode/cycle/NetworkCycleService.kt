@@ -186,7 +186,11 @@ class NetworkCycleService : Service() {
     }
 
     private fun result(text: String, ok: Boolean): Boolean {
-        NetworkCycleState.update { it.copy(lastResult = text) }
+        NetworkCycleState.update {
+            if (ok) it.copy(lastResult = text)
+            else it.copy(lastResult = text, phase = "Reintentando en 1 min…")
+        }
+        if (!ok) notify(text)
         return ok
     }
 

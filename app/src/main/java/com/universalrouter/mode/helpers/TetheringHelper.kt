@@ -43,7 +43,8 @@ object TetheringHelper {
         Regex("^ap\\d+$"),        // Pixel, Motorola, AOSP
         Regex("^swlan\\d+$"),     // Samsung, Xiaomi (Qualcomm)
         Regex("^softap\\d+$"),    // Algunos MediaTek
-        Regex("^wlan[1-9]$"),     // Interfaz secundaria usada como AP en muchos SoC
+        Regex("^wlan\\d+$"),      // En la lista de tethering activo, cualquier wlan es AP
+        Regex("^ap_br_\\w+$"),    // Puente AP dual-band (Samsung One UI 6+/Android 14+)
         Regex("^wigig\\d+$"),
     )
 
@@ -53,6 +54,21 @@ object TetheringHelper {
         Regex("^ncm\\d+$"),
     )
 
+    /**
+     * Broadcast sticky ConnectivityManager.ACTION_TETHER_STATE_CHANGED (@hide,
+     * pero el sistema lo envía sticky a todas las apps). "tetherArray" contiene
+     * las interfaces que están compartiendo internet en este momento.
+     */
+    private const val ACTION_TETHER_STATE_CHANGED = "android.net.conn.TETHER_STATE_CHANGED"
+    private const val EXTRA_ACTIVE_TETHER = "tetherArray"
+
+    private fun activeTetheredInterfaces(context: Context): List<String>? = try {
+        context.registerReceiver(null, IntentFilter(ACTION_TETHER_STATE_CHANGED))
+            ?.getStringArrayListExtra(EXTRA_ACTIVE_TETHER)
+    } catch (e: Exception) {
+        null
+    }
+
     fun isUsbConnected(context: Context): Boolean {
         val battery: Intent? = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val plugged = battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
@@ -60,12 +76,34 @@ object TetheringHelper {
     }
 
     fun status(context: Context): TetheringStatus {
-        val active = activeIpv4Interfaces()
+        val ips = activeIpv4Interfaces().associate { it.name to it.ipv4 }
+        val tethered = activeTetheredInterfaces(context)
+
+        fun find(patterns: List<Regex>): TetherInterface? {
+            // Fuente fiable: la lista de tethering activo del sistema.
+            if (tethered != null) {
+                val name = tethered.firstOrNull { n -> patterns.any { it.matches(n) } } ?: return null
+                return TetherInterface(name, ips[name] ?: ipv4Of(name) ?: "—")
+            }
+            // Respaldo: interfaces con IPv4 privada (sin wlan0, que es la WiFi cliente).
+            return ips.entries
+                .firstOrNull { (n, _) -> n != "wlan0" && patterns.any { it.matches(n) } }
+                ?.let { TetherInterface(it.key, it.value) }
+        }
+
         return TetheringStatus(
             usbConnected = isUsbConnected(context),
-            wifiHotspot = active.firstOrNull { iface -> WIFI_AP_PATTERNS.any { it.matches(iface.name) } },
-            usbTethering = active.firstOrNull { iface -> USB_PATTERNS.any { it.matches(iface.name) } },
+            wifiHotspot = find(WIFI_AP_PATTERNS),
+            usbTethering = find(USB_PATTERNS),
         )
+    }
+
+    /** Algunas ROM (Samsung) no listan el AP en getNetworkInterfaces(), pero sí responden por nombre. */
+    private fun ipv4Of(name: String): String? = try {
+        NetworkInterface.getByName(name)?.inetAddresses?.toList()
+            ?.firstOrNull { it is Inet4Address }?.hostAddress
+    } catch (e: Exception) {
+        null
     }
 
     private fun activeIpv4Interfaces(): List<TetherInterface> = try {

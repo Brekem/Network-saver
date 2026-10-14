@@ -21,11 +21,20 @@ android {
         applicationId = "com.universalrouter.mode"
         minSdk = 30
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {
+        // Clave debug fija (credenciales estándar de Android, no secretas):
+        // así el APK de GitHub y el compilado en local tienen la misma firma
+        // y cada versión se instala encima de la anterior sin desinstalar.
+        getByName("debug") {
+            storeFile = rootProject.file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (keystorePropsFile.exists()) {
             create("release") {
                 storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
@@ -78,6 +87,8 @@ dependencies {
     // Shizuku: permisos de ADB sin root para cambiar 5G/4G
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
+    // Acceso a APIs ocultas en el proceso de Shizuku (Android 14+)
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
 
     testImplementation("junit:junit:4.13.2")
 }

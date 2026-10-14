@@ -60,7 +60,7 @@ Toggle **Refresco automático**: cada 30 minutos (ajustable) el teléfono pasa a
 - Se muestra una notificación fija (obligatoria en Android para servicios en segundo plano) con botón **Detener**.
 
 ### Por qué necesita Shizuku
-Cambiar el modo de red requiere el permiso `MODIFY_PHONE_STATE`, que Android solo concede a apps del sistema (ni siquiera a Device Owner). [Shizuku](https://shizuku.rikka.app/) es una app gratuita que permite a otras apps usar los permisos de ADB **sin root**. Esta función usa una interfaz interna de Android (`ITelephony#setAllowedNetworkTypesForReason`, la misma que usa Ajustes › Modo de red), por lo que es la única parte de la app que no se limita a APIs públicas.
+Cambiar el modo de red requiere el permiso `MODIFY_PHONE_STATE`, que Android solo concede a apps del sistema (ni siquiera a Device Owner). [Shizuku](https://shizuku.rikka.app/) es una app gratuita que permite a otras apps usar los permisos de ADB **sin root**. Desde el proceso de Shizuku la app llama a la API `TelephonyManager#setAllowedNetworkTypesForReason` (la misma que usa Ajustes › Modo de red). Si no está disponible, recurre por reflexión a `ITelephony`, desbloqueando las APIs ocultas que Android 14+ bloquea.
 
 ### Activar Shizuku (Samsung, sin PC)
 1. Instala **Shizuku** desde Play Store.
@@ -69,6 +69,7 @@ Cambiar el modo de red requiere el permiso `MODIFY_PHONE_STATE`, que Android sol
 4. Abre Shizuku › «Iniciar mediante depuración inalámbrica» › «Emparejamiento» y sigue los pasos (el código de emparejamiento se escribe en la notificación de Shizuku).
 5. Pulsa **Iniciar** en Shizuku. Vuelve a Universal Router Mode › **Dar permiso a Shizuku** › Permitir.
 6. Recomendado: **Quitar restricciones de batería** para que One UI no detenga el loop.
+7. Si usas **Ahorro de energía máximo** de Samsung: ese modo pausa Shizuku y el loop deja de funcionar. Añade Shizuku y Universal Router Mode a las apps permitidas en Ajustes › Batería › Ahorro de energía › Ahorro de energía máximo (o usa el ahorro de energía normal).
 
 Después de cada reinicio del teléfono hay que repetir el paso 5 (pulsar Iniciar en Shizuku).
 
