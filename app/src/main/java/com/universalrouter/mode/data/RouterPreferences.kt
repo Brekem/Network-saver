@@ -11,6 +11,7 @@ data class PreviousState(
     val dndFilter: Int,
     val screenOffTimeout: Int,
     val stayOnWhilePluggedIn: Int,
+    val powerSave: Boolean = false,
 )
 
 /** Opciones que solo se aplican cuando la app es Device Owner. */
@@ -45,6 +46,16 @@ class RouterPreferences(context: Context) {
         get() = prefs.getStringSet(KEY_HIDDEN, emptySet()).orEmpty().toSet()
         set(value) = prefs.edit { putStringSet(KEY_HIDDEN, value) }
 
+    /** Apps cuya actividad en segundo plano restringió la app vía Shizuku. */
+    var bgRestrictedPackages: Set<String>
+        get() = prefs.getStringSet(KEY_BG_RESTRICTED, emptySet()).orEmpty().toSet()
+        set(value) = prefs.edit { putStringSet(KEY_BG_RESTRICTED, value) }
+
+    /** Tethering encendido por la app vía Shizuku (-1 = ninguno), para apagarlo al restaurar. */
+    var tetheringStarted: Int
+        get() = prefs.getInt(KEY_TETHER_STARTED, -1)
+        set(value) = prefs.edit { putInt(KEY_TETHER_STARTED, value) }
+
     var previousState: PreviousState?
         get() {
             if (!prefs.getBoolean(KEY_HAS_SNAPSHOT, false)) return null
@@ -55,6 +66,7 @@ class RouterPreferences(context: Context) {
                 dndFilter = prefs.getInt(KEY_DND, 1),
                 screenOffTimeout = prefs.getInt(KEY_TIMEOUT, 30_000),
                 stayOnWhilePluggedIn = prefs.getInt(KEY_STAY_ON, 0),
+                powerSave = prefs.getBoolean(KEY_POWER_SAVE, false),
             )
         }
         set(value) = prefs.edit {
@@ -68,6 +80,7 @@ class RouterPreferences(context: Context) {
                 putInt(KEY_DND, value.dndFilter)
                 putInt(KEY_TIMEOUT, value.screenOffTimeout)
                 putInt(KEY_STAY_ON, value.stayOnWhilePluggedIn)
+                putBoolean(KEY_POWER_SAVE, value.powerSave)
             }
         }
 
@@ -104,6 +117,9 @@ class RouterPreferences(context: Context) {
         const val KEY_DND = "prev_dnd"
         const val KEY_TIMEOUT = "prev_timeout"
         const val KEY_STAY_ON = "prev_stay_on"
+        const val KEY_POWER_SAVE = "prev_power_save"
+        const val KEY_BG_RESTRICTED = "bg_restricted_packages"
+        const val KEY_TETHER_STARTED = "tethering_started"
         const val KEY_DO_KIOSK = "do_kiosk"
         const val KEY_DO_HIDE = "do_hide"
         const val KEY_DO_SUSPEND = "do_suspend"

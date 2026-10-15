@@ -21,6 +21,7 @@ import com.universalrouter.mode.helpers.DeviceDetector
 import com.universalrouter.mode.helpers.InstalledApp
 import com.universalrouter.mode.helpers.SettingsTarget
 import com.universalrouter.mode.helpers.TetheringHelper
+import com.universalrouter.mode.helpers.TetherMethod
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,7 +108,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // Acciones de la UI
     // ------------------------------------------------------------------
 
-    fun onActivateClicked() {
+    /** Método de tethering pedido para esta activación (null = automático). */
+    @Volatile
+    private var tetherOverride: TetherMethod? = null
+
+    fun onActivateClicked(tether: TetherMethod? = null) {
+        tetherOverride = tether
         phase = Phase.ACTIVATING
         attempted.clear()
         runPass()
@@ -218,7 +224,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (current == Phase.IDLE) return@withLock
                 _state.update { it.copy(busy = true) }
                 val result = if (current == Phase.ACTIVATING) {
-                    controller.activationPass()
+                    controller.activationPass(tetherOverride)
                 } else {
                     controller.restorePass()
                 }

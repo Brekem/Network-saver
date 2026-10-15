@@ -9,4 +9,11 @@ interface INetworkShell {
     long getAllowedNetworkTypes(int subId) = 1;
 
     boolean setAllowedNetworkTypes(int subId, long types) = 2;
+
+    // Ejecuta un comando con sh -c. Devuelve "exit=N" en la primera línea y luego la salida.
+    String exec(String command) = 3;
+
+    // Enciende/apaga el tethering (0 = zona WiFi, 1 = USB) con TetheringManager.
+    // Devuelve "OK" o "ERROR …".
+    String setTethering(int type, boolean enable) = 4;
 }

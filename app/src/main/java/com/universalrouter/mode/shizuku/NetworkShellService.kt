@@ -2,12 +2,18 @@ package com.universalrouter.mode.shizuku
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
 import android.os.IBinder
 import android.telephony.TelephonyManager
 import android.util.Log
 import com.universalrouter.mode.INetworkShell
 import org.lsposed.hiddenapibypass.HiddenApiBypass
+import java.lang.reflect.Proxy
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
+import java.util.function.Supplier
 import kotlin.system.exitProcess
 
 /**
@@ -55,6 +61,94 @@ class NetworkShellService(private val context: Context?) : INetworkShell.Stub() 
 
     override fun destroy() {
         exitProcess(0)
+    }
+
+    override fun exec(command: String): String = try {
+        val process = ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start()
+        val output = StringBuilder()
+        val reader = Thread {
+            runCatching { process.inputStream.bufferedReader().forEachLine { output.appendLine(it) } }
+        }.apply { start() }
+        val finished = process.waitFor(EXEC_TIMEOUT_S, TimeUnit.SECONDS)
+        if (!finished) process.destroyForcibly()
+        reader.join(2_000)
+        val code = if (finished) process.exitValue() else -1
+        "exit=$code\n$output"
+    } catch (e: Exception) {
+        "exit=-1\n$e"
+    }
+
+    /**
+     * TetheringManager#startTethering/stopTethering (@SystemApi) por reflexión.
+     * El UID shell tiene TETHER_PRIVILEGED, que es lo que usa Ajustes para
+     * encender la zona WiFi o el anclaje USB con la configuración guardada.
+     */
+    @SuppressLint("PrivateApi", "BlockedPrivateApi", "DiscouragedPrivateApi")
+    override fun setTethering(type: Int, enable: Boolean): String = try {
+        val tm = tetheringManager()
+        if (!enable) {
+            tm.javaClass.getMethod("stopTethering", Int::class.javaPrimitiveType).invoke(tm, type)
+            "OK"
+        } else {
+            val builderClass = Class.forName("android.net.TetheringManager\$TetheringRequest\$Builder")
+            val builder = builderClass.getConstructor(Int::class.javaPrimitiveType).newInstance(type)
+            runCatching {
+                builderClass.getMethod("setShouldShowEntitlementUi", Boolean::class.javaPrimitiveType)
+                    .invoke(builder, false)
+            }
+            val request = builderClass.getMethod("build").invoke(builder)!!
+            val callbackClass = Class.forName("android.net.TetheringManager\$StartTetheringCallback")
+            val latch = CountDownLatch(1)
+            var result = "ERROR sin respuesta del sistema"
+            val callback = Proxy.newProxyInstance(callbackClass.classLoader, arrayOf(callbackClass)) { proxy, method, args ->
+                when (method.name) {
+                    "onTetheringStarted" -> {
+                        result = "OK"
+                        latch.countDown()
+                        null
+                    }
+                    "onTetheringFailed" -> {
+                        result = "ERROR código ${args?.firstOrNull()}"
+                        latch.countDown()
+                        null
+                    }
+                    "hashCode" -> System.identityHashCode(proxy)
+                    "equals" -> proxy === args?.firstOrNull()
+                    "toString" -> "StartTetheringCallback"
+                    else -> null
+                }
+            }
+            tm.javaClass.getMethod("startTethering", request.javaClass, Executor::class.java, callbackClass)
+                .invoke(tm, request, Executor { it.run() }, callback)
+            latch.await(TETHER_TIMEOUT_S, TimeUnit.SECONDS)
+            Log.i(TAG, "startTethering(type=$type) → $result")
+            result
+        }
+    } catch (e: Throwable) {
+        val cause = (e as? java.lang.reflect.InvocationTargetException)?.targetException ?: e
+        Log.w(TAG, "setTethering falló", cause)
+        "ERROR $cause"
+    }
+
+    /**
+     * TetheringManager envía como paquete llamante mContext.getOpPackageName().
+     * El servicio comprueba que ese paquete pertenezca al UID que llama (2000),
+     * así que se construye con un contexto que se identifica como com.android.shell.
+     */
+    @SuppressLint("PrivateApi")
+    private fun tetheringManager(): Any {
+        val base = context ?: throw IllegalStateException("Shizuku no proporcionó Context (actualiza Shizuku)")
+        val shellContext = object : ContextWrapper(base) {
+            override fun getOpPackageName(): String = SHELL_PACKAGE
+            override fun getPackageName(): String = SHELL_PACKAGE
+            override fun getAttributionTag(): String? = null
+        }
+        val binder = Class.forName("android.os.ServiceManager")
+            .getMethod("getService", String::class.java)
+            .invoke(null, "tethering") as IBinder
+        val tmClass = Class.forName("android.net.TetheringManager")
+        return tmClass.getConstructor(Context::class.java, Supplier::class.java)
+            .newInstance(shellContext, Supplier { binder })
     }
 
     override fun getAllowedNetworkTypes(subId: Int): Long {
@@ -113,6 +207,9 @@ class NetworkShellService(private val context: Context?) : INetworkShell.Stub() 
 
     private companion object {
         const val TAG = "NetworkShell"
+        const val EXEC_TIMEOUT_S = 30L
+        const val TETHER_TIMEOUT_S = 15L
+        const val SHELL_PACKAGE = "com.android.shell"
         const val REASON_USER = TelephonyManager.ALLOWED_NETWORK_TYPES_REASON_USER
     }
 }

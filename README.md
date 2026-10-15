@@ -22,15 +22,25 @@ Aplicación Android (Kotlin · MVVM · Material Design 3 · ViewBinding · Andro
 
 La activación es una secuencia idempotente. Aplica todo lo que Android permite automáticamente y, cuando el sistema bloquea una acción, abre **la pantalla exacta de Ajustes** (según fabricante) con un aviso de qué tocar. Al volver a la app continúa con el siguiente paso.
 
-| Función | Modo estándar | Device Owner |
-|---|---|---|
-| Zona WiFi / USB Tethering | Abre la pantalla exacta de tethering (1 toque) | Igual |
-| Bluetooth | Android 11-12: se apaga solo · 13+: abre Ajustes de Bluetooth | Se apaga y se bloquea (`DISALLOW_BLUETOOTH`) |
-| No Molestar | Automático (tras conceder acceso una vez) | Igual |
-| Brillo 10% | Automático (tras conceder «Modificar ajustes» una vez) | Automático sin permiso (`setSystemSetting`) |
-| Ahorro de energía | Abre la pantalla de ahorro (1 toque) | Igual + pantalla se apaga a los 15 s |
-| Apps seleccionadas | Cierra sus procesos en segundo plano | Suspendidas y/u ocultas |
-| Kiosco, bloqueo de ajustes e instalación | — | Sí |
+| Función | Con Shizuku (todo automático) | Modo estándar | Device Owner |
+|---|---|---|---|
+| Zona WiFi / USB Tethering | Se enciende sola (`TetheringManager`) | Abre la pantalla exacta de tethering (1 toque) | Igual que estándar |
+| Bluetooth | Se apaga solo | Android 11-12: se apaga solo · 13+: abre Ajustes de Bluetooth | Se apaga y se bloquea (`DISALLOW_BLUETOOTH`) |
+| No Molestar | Automático | Automático (tras conceder acceso una vez) | Igual |
+| Brillo 10% | Automático | Automático (tras conceder «Modificar ajustes» una vez) | Automático sin permiso (`setSystemSetting`) |
+| Ahorro de energía | Se activa solo | Abre la pantalla de ahorro (1 toque) | Igual + pantalla se apaga a los 15 s |
+| Apps seleccionadas | Segundo plano restringido (como «Restringir» en Batería) | Cierra sus procesos en segundo plano | Suspendidas y/u ocultas |
+| Kiosco, bloqueo de ajustes e instalación | — | — | Sí |
+
+Con Shizuku activo, **RESTAURAR** también lo deshace todo solo: apaga el tethering que encendió la app, devuelve el ahorro de energía, Bluetooth, No Molestar y brillo a como estaban, y vuelve a permitir el segundo plano de las apps.
+
+### Activar con un toque desde el PC o por ADB
+El menú de **ShizukuAutoStart** (Windows) tiene «Activar Modo Router (USB)», «Activar Modo Router (Zona WiFi)», «Restaurar teléfono» y la opción «Activar Modo Router al conectar el teléfono». Por ADB:
+
+```
+adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.ACTIVATE [--es method usb|wifi]
+adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.RESTORE
+```
 
 ### Detección del método de conexión
 
@@ -84,7 +94,7 @@ En el Release hay **ShizukuAutoStart.exe**, para no tener que pulsar Iniciar en 
    - arranca Shizuku cada vez que conectas el teléfono (también después de reiniciarlo).
 4. La primera vez, en Universal Router Mode pulsa **Dar permiso a Shizuku** › Permitir.
 
-Desde el menú del icono: estado, iniciar ahora, ayuda para conectar el teléfono, driver USB de Samsung, registro y desinstalar. Para compilarlo: `windows\build.bat` (usa el compilador de C# que ya trae Windows).
+Desde el menú del icono: activar Modo Router (USB o zona WiFi), restaurar el teléfono, activar al conectar, estado, iniciar ahora, ayuda para conectar el teléfono, driver USB de Samsung, registro y desinstalar. Para compilarlo: `windows\build.bat` (usa el compilador de C# que ya trae Windows).
 
 ## Modo Device Owner (opcional)
 

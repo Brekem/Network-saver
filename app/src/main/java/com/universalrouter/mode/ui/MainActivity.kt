@@ -27,6 +27,7 @@ import com.universalrouter.mode.databinding.ActivityMainBinding
 import com.universalrouter.mode.databinding.ItemStatusRowBinding
 import com.universalrouter.mode.domain.PendingAction
 import com.universalrouter.mode.helpers.OemSettingsNavigator
+import com.universalrouter.mode.helpers.TetherMethod
 import com.universalrouter.mode.shizuku.ShizukuManager
 import com.universalrouter.mode.shizuku.ShizukuState
 import rikka.shizuku.Shizuku
@@ -82,6 +83,37 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
         super.onDestroy()
+    }
+
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        if (savedInstanceState == null) handleActionIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleActionIntent(intent)
+    }
+
+    /**
+     * Acciones de un toque, por ejemplo desde ShizukuAutoStart en Windows:
+     * adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.ACTIVATE [--es method usb|wifi]
+     */
+    private fun handleActionIntent(intent: Intent?) {
+        when (intent?.action) {
+            ACTION_ACTIVATE -> viewModel.onActivateClicked(
+                when (intent.getStringExtra(EXTRA_METHOD)) {
+                    "usb" -> TetherMethod.USB
+                    "wifi" -> TetherMethod.WIFI
+                    else -> null
+                },
+            )
+            ACTION_RESTORE -> viewModel.onRestoreClicked()
+            else -> return
+        }
+        // Que una rotación o volver a la app no repita la acción.
+        intent.action = Intent.ACTION_MAIN
     }
 
     override fun onResume() {
@@ -405,5 +437,9 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val REFRESH_MS = 2_000L
+        const val ACTION_ACTIVATE = "com.universalrouter.mode.action.ACTIVATE"
+        const val ACTION_RESTORE = "com.universalrouter.mode.action.RESTORE"
+        // Extra opcional de ACTIVATE: "usb" o "wifi" (por defecto USB si hay cable).
+        const val EXTRA_METHOD = "method"
     }
 }

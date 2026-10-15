@@ -14,6 +14,10 @@ import com.universalrouter.mode.helpers.DndHelper
 import com.universalrouter.mode.helpers.PowerSaverHelper
 import com.universalrouter.mode.helpers.SettingsTarget
 import com.universalrouter.mode.helpers.TetheringHelper
+import com.universalrouter.mode.helpers.TetherMethod
+import com.universalrouter.mode.shizuku.PrivilegedActions
+import android.app.NotificationManager
+import android.provider.Settings
 
 /**
  * Orquesta el Modo Router Total. Cada pasada es idempotente: aplica todo lo
@@ -37,7 +41,8 @@ class RouterModeController(
     // ACTIVAR
     // ------------------------------------------------------------------
 
-    fun activationPass(): PassResult {
+    /** [tetherOverride]: forzar zona WiFi o USB (null = USB si hay cable, si no WiFi). */
+    fun activationPass(tetherOverride: TetherMethod? = null): PassResult {
         val pending = mutableListOf<PendingAction>()
         val applied = mutableListOf<String>()
         val isOwner = owner.isDeviceOwner
@@ -48,9 +53,13 @@ class RouterModeController(
         if (prefs.previousState == null) prefs.previousState = snapshot()
         prefs.routerActive = true
 
+        // Con Shizuku todo se aplica directamente, sin abrir pantallas de Ajustes.
+        val priv = PrivilegedActions.connect(context)
+        if (priv != null) applied += "Shizuku activo: pasos automáticos"
+
         // 1. Permiso runtime de Bluetooth (Android 12+): necesario para apagar
         //    (12) y para volver a encender al restaurar (12+).
-        if (device.needsBluetoothConnectPermission && bluetooth.isAvailable && !bluetooth.hasConnectPermission()) {
+        if (priv == null && device.needsBluetoothConnectPermission && bluetooth.isAvailable && !bluetooth.hasConnectPermission()) {
             pending += PendingAction.RequestPermission(Manifest.permission.BLUETOOTH_CONNECT)
         }
 
@@ -59,6 +68,8 @@ class RouterModeController(
             applied += "No Molestar ya activo"
         } else if (dnd.enable()) {
             applied += "No Molestar activado"
+        } else if (priv?.setDnd(NotificationManager.INTERRUPTION_FILTER_PRIORITY) == true) {
+            applied += "No Molestar activado (Shizuku)"
         } else {
             pending += PendingAction.OpenSettings(
                 SettingsTarget.DND_ACCESS,
@@ -70,6 +81,8 @@ class RouterModeController(
         when {
             isOwner && owner.setBrightness(BrightnessHelper.TARGET) -> applied += "Brillo 10% (Device Owner)"
             brightness.setLow() -> applied += "Brillo 10%"
+            priv?.setBrightness(BrightnessHelper.TARGET, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL) == true ->
+                applied += "Brillo 10% (Shizuku)"
             else -> pending += PendingAction.OpenSettings(
                 SettingsTarget.WRITE_SETTINGS,
                 "Activa «Modificar ajustes del sistema» y vuelve atrás",
@@ -83,6 +96,8 @@ class RouterModeController(
             }
             if (bluetooth.tryDisable()) {
                 applied += "Bluetooth desactivado"
+            } else if (priv?.setBluetooth(false) == true) {
+                applied += "Bluetooth desactivado (Shizuku)"
             } else if (!(isOwner && options.powerPolicies)) {
                 pending += PendingAction.OpenSettings(
                     SettingsTarget.BLUETOOTH,
@@ -112,6 +127,10 @@ class RouterModeController(
                     prefs.hiddenPackages = prefs.hiddenPackages + toHide
                 }
                 applied += "Apps restringidas por política (${selected.size})"
+            } else if (priv != null) {
+                val restricted = selected.filter { priv.restrictBackground(it) }
+                prefs.bgRestrictedPackages = prefs.bgRestrictedPackages + restricted
+                applied += "Segundo plano restringido (${selected.size} apps, Shizuku)"
             } else {
                 val n = apps.killBackground(selected)
                 applied += "Actividad en segundo plano reducida ($n apps)"
@@ -132,6 +151,8 @@ class RouterModeController(
         // 7. Ahorro de energía (sin API para activarlo: siempre requiere un toque).
         if (power.isPowerSaveMode) {
             applied += "Ahorro de energía activo"
+        } else if (priv?.setPowerSave(true) == true) {
+            applied += "Ahorro de energía activado (Shizuku)"
         } else {
             pending += PendingAction.OpenSettings(
                 SettingsTarget.BATTERY_SAVER,
@@ -142,10 +163,29 @@ class RouterModeController(
         // 8. Compartir internet: USB si hay cable, si no WiFi. Se deja para el
         //    final para que sea la última pantalla que vea el usuario.
         val tether = TetheringHelper.status(context)
-        if (tether.anyActive) {
-            applied += if (tether.usbTetheringActive) "USB Tethering activo" else "Zona WiFi activa"
+        val wantUsb = when (tetherOverride) {
+            TetherMethod.USB -> true
+            TetherMethod.WIFI -> false
+            null -> tether.usbConnected
+        }
+        val alreadyActive = if (tetherOverride == null) tether.anyActive
+        else if (wantUsb) tether.usbTetheringActive else tether.wifiHotspotActive
+        if (alreadyActive) {
+            val usbActive = if (tetherOverride == null) tether.usbTetheringActive else wantUsb
+            applied += if (usbActive) "USB Tethering activo" else "Zona WiFi activa"
+        } else if (priv != null) {
+            val usb = wantUsb
+            val type = if (usb) PrivilegedActions.TETHER_USB else PrivilegedActions.TETHER_WIFI
+            val error = priv.setTethering(type, true)
+            if (error == null) {
+                prefs.tetheringStarted = type
+                applied += if (usb) "USB Tethering activado (Shizuku)" else "Zona WiFi activada (Shizuku)"
+            } else {
+                applied += "No se pudo activar el tethering: $error"
+                pending += tetheringAction(usb = usb)
+            }
         } else {
-            pending += tetheringAction(usb = tether.usbConnected)
+            pending += tetheringAction(usb = wantUsb)
         }
 
         // 9. Kiosco (solo Device Owner).
@@ -184,14 +224,37 @@ class RouterModeController(
             applied += "Políticas Device Owner retiradas"
         }
         prefs.routerActive = false
+        val priv = PrivilegedActions.connect(context)
+
+        // Deshacer lo aplicado con Shizuku (independiente del snapshot).
+        if (priv != null) {
+            val started = prefs.tetheringStarted
+            if (started >= 0) {
+                priv.setTethering(started, false)
+                prefs.tetheringStarted = -1
+                applied += if (started == PrivilegedActions.TETHER_USB) "USB Tethering apagado" else "Zona WiFi apagada"
+            }
+            val restricted = prefs.bgRestrictedPackages
+            if (restricted.isNotEmpty()) {
+                restricted.forEach { priv.allowBackground(it) }
+                prefs.bgRestrictedPackages = emptySet()
+                applied += "Segundo plano permitido de nuevo (${restricted.size} apps)"
+            }
+        }
 
         if (previous == null) return PassResult(pending, applied, kiosk = false)
+
+        // Ahorro de energía previo.
+        if (!previous.powerSave && power.isPowerSaveMode && priv?.setPowerSave(false) == true) {
+            applied += "Ahorro de energía desactivado"
+        }
 
         // Brillo previo.
         when {
             isOwner && owner.setBrightness(previous.brightness) &&
                 owner.setBrightnessMode(previous.brightnessMode) -> applied += "Brillo restaurado"
             brightness.set(previous.brightness, previous.brightnessMode) -> applied += "Brillo restaurado"
+            priv?.setBrightness(previous.brightness, previous.brightnessMode) == true -> applied += "Brillo restaurado"
             else -> pending += PendingAction.OpenSettings(
                 SettingsTarget.WRITE_SETTINGS,
                 "Activa «Modificar ajustes del sistema» para restaurar el brillo",
@@ -199,7 +262,7 @@ class RouterModeController(
         }
 
         // No Molestar previo.
-        if (dnd.setFilter(previous.dndFilter)) {
+        if (dnd.setFilter(previous.dndFilter) || priv?.setDnd(previous.dndFilter) == true) {
             applied += "No Molestar restaurado"
         } else {
             pending += PendingAction.OpenSettings(
@@ -217,6 +280,7 @@ class RouterModeController(
         // Bluetooth previo.
         if (previous.bluetoothEnabled && !bluetooth.isEnabled) {
             when {
+                priv?.setBluetooth(true) == true -> applied += "Bluetooth reactivado"
                 !bluetooth.hasConnectPermission() ->
                     pending += PendingAction.RequestPermission(Manifest.permission.BLUETOOTH_CONNECT)
                 (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || isOwner) && bluetooth.tryEnable() ->
@@ -274,6 +338,7 @@ class RouterModeController(
         dndFilter = dnd.currentFilter,
         screenOffTimeout = brightness.screenOffTimeout,
         stayOnWhilePluggedIn = owner.stayOnWhilePluggedIn(),
+        powerSave = power.isPowerSaveMode,
     )
 
     companion object {

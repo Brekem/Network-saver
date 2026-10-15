@@ -24,7 +24,7 @@ using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Shizuku AutoStart")]
 [assembly: System.Reflection.AssemblyProduct("Universal Router Mode")]
-[assembly: System.Reflection.AssemblyVersion("1.2.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.3.0.0")]
 
 static class Program
 {
@@ -122,6 +122,12 @@ static class Settings
     const string Key = "Software\\" + Program.AppName;
     const string RunKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
+    public static bool AutoActivate
+    {
+        get { return GetInt("AutoActivate", 0) != 0; }
+        set { SetInt("AutoActivate", value ? 1 : 0); }
+    }
+
     public static bool InstallApps
     {
         get { return GetInt("InstallApps", 1) != 0; }
@@ -204,6 +210,8 @@ class TrayApp : ApplicationContext
     volatile bool forceRetry;
     readonly Dictionary<string, DateTime> lastAttempt = new Dictionary<string, DateTime>();
     readonly HashSet<string> active = new HashSet<string>();
+    // Teléfono con Shizuku activo, para los botones del menú (null = ninguno).
+    volatile string readySerial;
     readonly HashSet<string> warned = new HashSet<string>();
     DateTime noDeviceSince = DateTime.Now;
     bool noDeviceHintShown;
@@ -224,9 +232,20 @@ class TrayApp : ApplicationContext
         installAppsItem.CheckedChanged += delegate { Settings.InstallApps = installAppsItem.Checked; };
         autoStartItem = new ToolStripMenuItem("Arrancar con Windows") { CheckOnClick = true, Checked = Settings.AutoStart };
         autoStartItem.CheckedChanged += delegate { Settings.AutoStart = autoStartItem.Checked; };
+        var autoActivateItem = new ToolStripMenuItem("Activar Modo Router al conectar el teléfono")
+        {
+            CheckOnClick = true,
+            Checked = Settings.AutoActivate,
+        };
+        autoActivateItem.CheckedChanged += delegate { Settings.AutoActivate = autoActivateItem.Checked; };
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(statusItem);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Activar Modo Router (USB)", null, delegate { MenuRouterAction("ACTIVATE", "usb", "Activar Modo Router"); });
+        menu.Items.Add("Activar Modo Router (Zona WiFi)", null, delegate { MenuRouterAction("ACTIVATE", "wifi", "Activar Modo Router"); });
+        menu.Items.Add("Restaurar teléfono", null, delegate { MenuRouterAction("RESTORE", null, "Restaurar el teléfono"); });
+        menu.Items.Add(autoActivateItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Iniciar Shizuku ahora", null, delegate { forceRetry = true; wake.Set(); });
         menu.Items.Add(installAppsItem);
@@ -315,6 +334,7 @@ class TrayApp : ApplicationContext
         if (devices.Count == 0)
         {
             active.Clear();
+            readySerial = null;
             SetStatus(Health.Waiting, "Esperando el teléfono por USB…");
             if (!noDeviceHintShown && (DateTime.Now - noDeviceSince).TotalSeconds > 60)
             {
@@ -366,15 +386,18 @@ class TrayApp : ApplicationContext
 
         if (IsShizukuRunning(serial))
         {
+            readySerial = serial;
             SetStatus(Health.Ok, "Shizuku activo · " + model);
             if (active.Add(serial))
             {
                 Log("Shizuku activo en " + model);
                 if (Settings.InstallApps) EnsureApp(serial, RouterPkg, "Universal Router Mode", RouterApkUrl);
+                if (Settings.AutoActivate) RouterAction(serial, "ACTIVATE", null, "Activar Modo Router");
             }
             return;
         }
         active.Remove(serial);
+        if (readySerial == serial) readySerial = null;
 
         DateTime last;
         if (!force && lastAttempt.TryGetValue(serial, out last) && (DateTime.Now - last).TotalMilliseconds < RetryMs)
@@ -402,8 +425,15 @@ class TrayApp : ApplicationContext
         {
             active.Add(serial);
             SetStatus(Health.Ok, "Shizuku activo · " + model);
-            Balloon("Shizuku iniciado", "Shizuku está activo en " + model + ". Ya puedes usar el refresco 5G/4G.",
+            readySerial = serial;
+            Balloon("Shizuku iniciado", "Shizuku está activo en " + model + ". Menú › «Activar Modo Router» para aplicarlo todo.",
                 ToolTipIcon.Info);
+            if (Settings.AutoActivate)
+            {
+                // Margen para que la app reciba el binder de Shizuku.
+                Thread.Sleep(3000);
+                RouterAction(serial, "ACTIVATE", null, "Activar Modo Router");
+            }
         }
         else
         {
@@ -412,6 +442,52 @@ class TrayApp : ApplicationContext
                 : "revisa «Ver registro»";
             SetStatus(Health.Error, "No se pudo iniciar Shizuku");
             Balloon("No se pudo iniciar Shizuku", "Reintentando en 30 s: " + why + ".", ToolTipIcon.Error);
+        }
+    }
+
+    /// <summary>Botón del menú: ejecuta la acción fuera del hilo de la interfaz.</summary>
+    void MenuRouterAction(string action, string method, string label)
+    {
+        ThreadPool.QueueUserWorkItem(delegate
+        {
+            string serial = readySerial;
+            if (serial == null)
+            {
+                Balloon("Teléfono no listo",
+                    "Conecta el teléfono por USB y espera a que el icono se ponga verde (Shizuku activo).",
+                    ToolTipIcon.Warning);
+                return;
+            }
+            RouterAction(serial, action, method, label);
+        });
+    }
+
+    /// <summary>
+    /// Pide a Universal Router Mode que active o restaure el Modo Router. Con
+    /// Shizuku activo la app aplica todos los pasos sola, sin pantallas de Ajustes.
+    /// </summary>
+    void RouterAction(string serial, string action, string method, string label)
+    {
+        if (!IsInstalled(serial, RouterPkg))
+        {
+            Balloon("Falta Universal Router Mode", "Activa «Instalar Shizuku y Universal Router Mode si faltan».",
+                ToolTipIcon.Warning);
+            return;
+        }
+        Shell(serial, "input keyevent KEYCODE_WAKEUP", 10000);
+        string cmd = "am start -n " + RouterPkg + "/.ui.MainActivity -a " + RouterPkg + ".action." + action;
+        if (method != null) cmd += " --es method " + method;
+        string output = Shell(serial, cmd, 20000);
+        Log(label + ": " + output.Trim());
+        if (output.Contains("Error"))
+        {
+            Balloon("No se pudo " + label.ToLowerInvariant(), "Detalle en «Ver registro».", ToolTipIcon.Error);
+        }
+        else
+        {
+            Balloon(label, action == "RESTORE"
+                ? "El teléfono vuelve a su estado anterior."
+                : "El teléfono aplica todos los pasos automáticamente.", ToolTipIcon.Info);
         }
     }
 
@@ -607,7 +683,7 @@ class TrayApp : ApplicationContext
     {
         ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
         var wc = new WebClient();
-        wc.Headers[HttpRequestHeader.UserAgent] = "ShizukuAutoStart/1.2";
+        wc.Headers[HttpRequestHeader.UserAgent] = "ShizukuAutoStart/1.3";
         return wc;
     }
 
@@ -721,8 +797,10 @@ class TrayApp : ApplicationContext
             "3. Conecta el teléfono al PC con un cable USB de datos.\n\n" +
             "4. En el teléfono aparecerá «¿Permitir depuración USB?»: marca «Permitir siempre desde este equipo» " +
             "y pulsa Permitir.\n\n" +
-            "5. Listo: este programa instala lo que falte y arranca Shizuku. Después, en Universal Router Mode " +
-            "pulsa «Dar permiso a Shizuku» › Permitir (solo la primera vez).\n\n" +
+            "5. Listo: este programa instala lo que falte y arranca Shizuku. La primera vez, en Universal Router Mode " +
+            "pulsa «Dar permiso a Shizuku» › Permitir.\n\n" +
+            "6. Desde el menú de este icono, «Activar Modo Router» aplica todo en el teléfono (Bluetooth, ahorro de " +
+            "energía, No Molestar, brillo, apps y zona WiFi o USB) sin tocar nada. «Restaurar teléfono» lo deshace.\n\n" +
             "Si el teléfono no aparece, instala el driver USB de Samsung (opción del menú) y prueba otro cable o puerto.\n\n" +
             "Si usas «Ahorro de energía máximo» de Samsung, añade Shizuku a las apps permitidas: ese modo pausa Shizuku.",
             "Cómo conectar el teléfono", MessageBoxButtons.OK, MessageBoxIcon.Information);
