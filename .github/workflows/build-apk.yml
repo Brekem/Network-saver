@@ -70,3 +70,35 @@ jobs:
           body: |
             Descarga **UniversalRouterMode.apk** (abajo, en *Assets*) e instálalo en el teléfono.
             Android pedirá permitir la instalación de apps de origen desconocido.
+
+            **ShizukuAutoStart.exe** (Windows): ejecútalo una vez. Se instala, arranca con Windows y, cada vez que
+            conectes el teléfono por USB, arranca Shizuku solo. Descarga ADB e instala Shizuku y esta app si faltan.
+
+  # App de Windows que arranca Shizuku automáticamente al conectar el teléfono.
+  # Se sube al mismo Release que el APK.
+  windows-tool:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar ShizukuAutoStart.exe
+        shell: cmd
+        run: windows\build.bat
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShizukuAutoStart-exe
+          path: dist/ShizukuAutoStart.exe
+
+      - name: Leer versión
+        id: version
+        shell: bash
+        run: echo "name=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
+
+      - name: Añadir al Release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.name }}
+          files: dist/ShizukuAutoStart.exe

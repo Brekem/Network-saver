@@ -12,3 +12,4 @@
 *.keystore
 !keystore/debug.keystore
 keystore.properties
+/dist/

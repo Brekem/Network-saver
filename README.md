@@ -71,7 +71,20 @@ Cambiar el modo de red requiere el permiso `MODIFY_PHONE_STATE`, que Android sol
 6. Recomendado: **Quitar restricciones de batería** para que One UI no detenga el loop.
 7. Si usas **Ahorro de energía máximo** de Samsung: ese modo pausa Shizuku y el loop deja de funcionar. Añade Shizuku y Universal Router Mode a las apps permitidas en Ajustes › Batería › Ahorro de energía › Ahorro de energía máximo (o usa el ahorro de energía normal).
 
-Después de cada reinicio del teléfono hay que repetir el paso 5 (pulsar Iniciar en Shizuku).
+Después de cada reinicio del teléfono hay que repetir el paso 5 (pulsar Iniciar en Shizuku), o usar ShizukuAutoStart (abajo) para que se haga solo al conectar el teléfono al PC.
+
+### Arrancar Shizuku automáticamente desde el PC (Windows)
+En el Release hay **ShizukuAutoStart.exe**, para no tener que pulsar Iniciar en Shizuku cada vez que se reinicia el teléfono:
+
+1. Descárgalo y ejecútalo una vez. Si Windows SmartScreen avisa: «Más información» › «Ejecutar de todas formas» (no está firmado).
+2. Se instala en `%LOCALAPPDATA%\ShizukuAutoStart`, arranca con Windows y queda como icono junto al reloj.
+3. Activa la **Depuración USB** en el teléfono y conéctalo por cable. El programa:
+   - descarga ADB (platform-tools oficial de Google) si el PC no lo tiene;
+   - instala **Shizuku** y **Universal Router Mode** en el teléfono si faltan;
+   - arranca Shizuku cada vez que conectas el teléfono (también después de reiniciarlo).
+4. La primera vez, en Universal Router Mode pulsa **Dar permiso a Shizuku** › Permitir.
+
+Desde el menú del icono: estado, iniciar ahora, ayuda para conectar el teléfono, driver USB de Samsung, registro y desinstalar. Para compilarlo: `windows\build.bat` (usa el compilador de C# que ya trae Windows).
 
 ## Modo Device Owner (opcional)
 
