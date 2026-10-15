@@ -98,17 +98,20 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Acciones de un toque, por ejemplo desde ShizukuAutoStart en Windows:
-     * adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.ACTIVATE [--es method usb|wifi]
+     * adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.ACTIVATE [--es method usb|wifi] [--ez game true|false]
      */
     private fun handleActionIntent(intent: Intent?) {
         when (intent?.action) {
-            ACTION_ACTIVATE -> viewModel.onActivateClicked(
-                when (intent.getStringExtra(EXTRA_METHOD)) {
-                    "usb" -> TetherMethod.USB
-                    "wifi" -> TetherMethod.WIFI
-                    else -> null
-                },
-            )
+            ACTION_ACTIVATE -> {
+                if (intent.hasExtra(EXTRA_GAME)) viewModel.setGameMode(intent.getBooleanExtra(EXTRA_GAME, false))
+                viewModel.onActivateClicked(
+                    when (intent.getStringExtra(EXTRA_METHOD)) {
+                        "usb" -> TetherMethod.USB
+                        "wifi" -> TetherMethod.WIFI
+                        else -> null
+                    },
+                )
+            }
             ACTION_RESTORE -> viewModel.onRestoreClicked()
             else -> return
         }
@@ -148,6 +151,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupCycleListeners() = with(binding) {
+        swGameMode.setOnCheckedChangeListener { _, checked ->
+            if (bindingOptions) return@setOnCheckedChangeListener
+            viewModel.setGameMode(checked)
+        }
+
         swCycle.setOnCheckedChangeListener { _, checked ->
             if (bindingOptions) return@setOnCheckedChangeListener
             if (checked) requestNotificationPermission()
@@ -237,6 +245,7 @@ class MainActivity : AppCompatActivity() {
         val c = state.cycleConfig
         val st = state.cycleStatus
         swCycle.isChecked = state.cycleEnabled
+        binding.swGameMode.isChecked = state.gameMode
         swProtect.isChecked = c.protectGaming
         if (sliderInterval.value.toInt() != c.intervalMinutes) sliderInterval.value = c.intervalMinutes.toFloat()
         if (sliderDuration.value.toInt() != c.durationSeconds) sliderDuration.value = c.durationSeconds.toFloat()
@@ -441,5 +450,7 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_RESTORE = "com.universalrouter.mode.action.RESTORE"
         // Extra opcional de ACTIVATE: "usb" o "wifi" (por defecto USB si hay cable).
         const val EXTRA_METHOD = "method"
+        // Extra opcional de ACTIVATE: true/false para el Modo juego (se guarda).
+        const val EXTRA_GAME = "game"
     }
 }

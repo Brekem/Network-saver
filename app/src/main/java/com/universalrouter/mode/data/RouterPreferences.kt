@@ -46,6 +46,11 @@ class RouterPreferences(context: Context) {
         get() = prefs.getStringSet(KEY_HIDDEN, emptySet()).orEmpty().toSet()
         set(value) = prefs.edit { putStringSet(KEY_HIDDEN, value) }
 
+    /** Modo juego: al compartir por USB no se activa el ahorro de energía (menos latencia). */
+    var gameMode: Boolean
+        get() = prefs.getBoolean(KEY_GAME_MODE, false)
+        set(value) = prefs.edit { putBoolean(KEY_GAME_MODE, value) }
+
     /** Apps cuya actividad en segundo plano restringió la app vía Shizuku. */
     var bgRestrictedPackages: Set<String>
         get() = prefs.getStringSet(KEY_BG_RESTRICTED, emptySet()).orEmpty().toSet()
@@ -118,6 +123,7 @@ class RouterPreferences(context: Context) {
         const val KEY_TIMEOUT = "prev_timeout"
         const val KEY_STAY_ON = "prev_stay_on"
         const val KEY_POWER_SAVE = "prev_power_save"
+        const val KEY_GAME_MODE = "game_mode"
         const val KEY_BG_RESTRICTED = "bg_restricted_packages"
         const val KEY_TETHER_STARTED = "tethering_started"
         const val KEY_DO_KIOSK = "do_kiosk"

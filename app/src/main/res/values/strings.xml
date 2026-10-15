@@ -53,6 +53,7 @@
     <string name="permission_denied">Permiso denegado</string>
 
     <string name="section_cycle">Refresco de red 5G/4G</string>
+    <string name="game_mode_toggle">Modo juego: sin ahorro de energía al compartir por USB</string>
     <string name="cycle_toggle">Refresco automático (loop infinito)</string>
     <string name="cycle_protect">Protección para jugar: no cambiar si hay tráfico</string>
     <string name="cycle_now">Probar ahora</string>

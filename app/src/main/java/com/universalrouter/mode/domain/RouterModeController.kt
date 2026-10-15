@@ -149,7 +149,19 @@ class RouterModeController(
         }
 
         // 7. Ahorro de energía (sin API para activarlo: siempre requiere un toque).
-        if (power.isPowerSaveMode) {
+        //    Modo juego + USB: el PC carga el teléfono, se deja sin ahorro (menos latencia).
+        val usbMode = when (tetherOverride) {
+            TetherMethod.USB -> true
+            TetherMethod.WIFI -> false
+            null -> TetheringHelper.isUsbConnected(context)
+        }
+        if (prefs.gameMode && usbMode) {
+            when {
+                !power.isPowerSaveMode -> applied += "Modo juego: ahorro de energía sin activar"
+                priv?.setPowerSave(false) == true -> applied += "Modo juego: ahorro de energía desactivado"
+                else -> applied += "Modo juego: desactiva el ahorro de energía manualmente si quieres"
+            }
+        } else if (power.isPowerSaveMode) {
             applied += "Ahorro de energía activo"
         } else if (priv?.setPowerSave(true) == true) {
             applied += "Ahorro de energía activado (Shizuku)"

@@ -28,17 +28,20 @@ La activación es una secuencia idempotente. Aplica todo lo que Android permite 
 | Bluetooth | Se apaga solo | Android 11-12: se apaga solo · 13+: abre Ajustes de Bluetooth | Se apaga y se bloquea (`DISALLOW_BLUETOOTH`) |
 | No Molestar | Automático | Automático (tras conceder acceso una vez) | Igual |
 | Brillo 10% | Automático | Automático (tras conceder «Modificar ajustes» una vez) | Automático sin permiso (`setSystemSetting`) |
-| Ahorro de energía | Se activa solo | Abre la pantalla de ahorro (1 toque) | Igual + pantalla se apaga a los 15 s |
+| Ahorro de energía | Se activa solo (con «Modo juego» y USB: se deja apagado) | Abre la pantalla de ahorro (1 toque) | Igual + pantalla se apaga a los 15 s |
 | Apps seleccionadas | Segundo plano restringido (como «Restringir» en Batería) | Cierra sus procesos en segundo plano | Suspendidas y/u ocultas |
 | Kiosco, bloqueo de ajustes e instalación | — | — | Sí |
 
 Con Shizuku activo, **RESTAURAR** también lo deshace todo solo: apaga el tethering que encendió la app, devuelve el ahorro de energía, Bluetooth, No Molestar y brillo a como estaban, y vuelve a permitir el segundo plano de las apps.
 
+### Modo juego
+Interruptor bajo RESTAURAR (y casilla en el menú de ShizukuAutoStart). Si el teléfono comparte por USB, ACTIVAR no enciende el ahorro de energía (y lo apaga si estaba encendido): el ahorro de Samsung puede añadir latencia. Ojo: con descargas fuertes el teléfono puede gastar más de lo que da el puerto USB del PC y descargarse igualmente.
+
 ### Activar con un toque desde el PC o por ADB
-El menú de **ShizukuAutoStart** (Windows) tiene «Activar Modo Router (USB)», «Activar Modo Router (Zona WiFi)», «Restaurar teléfono» y la opción «Activar Modo Router al conectar el teléfono». Por ADB:
+El menú de **ShizukuAutoStart** (Windows) tiene «Activar Modo Router (USB)», «Activar Modo Router (Zona WiFi)», «Restaurar teléfono» y las opciones «Activar Modo Router al conectar el teléfono» y «Modo juego». Por ADB:
 
 ```
-adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.ACTIVATE [--es method usb|wifi]
+adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.ACTIVATE [--es method usb|wifi] [--ez game true|false]
 adb shell am start -n com.universalrouter.mode/.ui.MainActivity -a com.universalrouter.mode.action.RESTORE
 ```
 

@@ -24,7 +24,7 @@ using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Shizuku AutoStart")]
 [assembly: System.Reflection.AssemblyProduct("Universal Router Mode")]
-[assembly: System.Reflection.AssemblyVersion("1.3.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.4.0.0")]
 
 static class Program
 {
@@ -121,6 +121,12 @@ static class Settings
 {
     const string Key = "Software\\" + Program.AppName;
     const string RunKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+    public static bool GameMode
+    {
+        get { return GetInt("GameMode", 0) != 0; }
+        set { SetInt("GameMode", value ? 1 : 0); }
+    }
 
     public static bool AutoActivate
     {
@@ -238,6 +244,12 @@ class TrayApp : ApplicationContext
             Checked = Settings.AutoActivate,
         };
         autoActivateItem.CheckedChanged += delegate { Settings.AutoActivate = autoActivateItem.Checked; };
+        var gameModeItem = new ToolStripMenuItem("Modo juego (sin ahorro de energía por USB)")
+        {
+            CheckOnClick = true,
+            Checked = Settings.GameMode,
+        };
+        gameModeItem.CheckedChanged += delegate { Settings.GameMode = gameModeItem.Checked; };
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(statusItem);
@@ -246,6 +258,7 @@ class TrayApp : ApplicationContext
         menu.Items.Add("Activar Modo Router (Zona WiFi)", null, delegate { MenuRouterAction("ACTIVATE", "wifi", "Activar Modo Router"); });
         menu.Items.Add("Restaurar teléfono", null, delegate { MenuRouterAction("RESTORE", null, "Restaurar el teléfono"); });
         menu.Items.Add(autoActivateItem);
+        menu.Items.Add(gameModeItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Iniciar Shizuku ahora", null, delegate { forceRetry = true; wake.Set(); });
         menu.Items.Add(installAppsItem);
@@ -477,6 +490,7 @@ class TrayApp : ApplicationContext
         Shell(serial, "input keyevent KEYCODE_WAKEUP", 10000);
         string cmd = "am start -n " + RouterPkg + "/.ui.MainActivity -a " + RouterPkg + ".action." + action;
         if (method != null) cmd += " --es method " + method;
+        if (action == "ACTIVATE") cmd += " --ez game " + (Settings.GameMode ? "true" : "false");
         string output = Shell(serial, cmd, 20000);
         Log(label + ": " + output.Trim());
         if (output.Contains("Error"))
@@ -683,7 +697,7 @@ class TrayApp : ApplicationContext
     {
         ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
         var wc = new WebClient();
-        wc.Headers[HttpRequestHeader.UserAgent] = "ShizukuAutoStart/1.3";
+        wc.Headers[HttpRequestHeader.UserAgent] = "ShizukuAutoStart/1.4";
         return wc;
     }
 
@@ -799,7 +813,7 @@ class TrayApp : ApplicationContext
             "y pulsa Permitir.\n\n" +
             "5. Listo: este programa instala lo que falte y arranca Shizuku. La primera vez, en Universal Router Mode " +
             "pulsa «Dar permiso a Shizuku» › Permitir.\n\n" +
-            "6. Desde el menú de este icono, «Activar Modo Router» aplica todo en el teléfono (Bluetooth, ahorro de " +
+            "6. Desde el menú de este icono, «Activar Modo Router» (y la casilla «Modo juego») aplica todo en el teléfono (Bluetooth, ahorro de " +
             "energía, No Molestar, brillo, apps y zona WiFi o USB) sin tocar nada. «Restaurar teléfono» lo deshace.\n\n" +
             "Si el teléfono no aparece, instala el driver USB de Samsung (opción del menú) y prueba otro cable o puerto.\n\n" +
             "Si usas «Ahorro de energía máximo» de Samsung, añade Shizuku a las apps permitidas: ese modo pausa Shizuku.",

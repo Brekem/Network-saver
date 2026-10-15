@@ -102,6 +102,12 @@
                 android:text="@string/btn_restore"
                 app:cornerRadius="28dp" />
 
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/swGameMode"
+                style="@style/OwnerSwitch"
+                android:layout_marginTop="8dp"
+                android:text="@string/game_mode_toggle" />
+
             <!-- CONEXIÓN COMPARTIDA -->
             <TextView
                 style="@style/SectionTitle"

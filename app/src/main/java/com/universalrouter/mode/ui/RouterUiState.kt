@@ -36,6 +36,7 @@ data class RouterUiState(
     val log: List<String> = emptyList(),
     val shizukuState: ShizukuState = ShizukuState.NOT_INSTALLED,
     val cycleEnabled: Boolean = false,
+    val gameMode: Boolean = false,
     val cycleConfig: CycleConfig = CycleConfig(),
     val cycleStatus: CycleStatus = CycleStatus(),
     val batteryUnrestricted: Boolean = false,

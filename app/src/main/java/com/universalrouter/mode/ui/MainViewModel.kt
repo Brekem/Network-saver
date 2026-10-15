@@ -98,6 +98,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
+    fun setGameMode(enabled: Boolean) {
+        prefs.gameMode = enabled
+        _state.update { it.copy(gameMode = enabled) }
+        requestRefresh()
+    }
+
     fun setCycleConfig(config: CycleConfig) {
         if (config == cycleSettings.config) return
         cycleSettings.config = config
@@ -273,6 +279,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val bt = controller.bluetooth
         val btOff = !bt.isEnabled
         val powerSave = controller.power.isPowerSaveMode
+        // Modo juego por USB: sin ahorro de energía es lo correcto.
+        val gameUsb = prefs.gameMode && TetheringHelper.isUsbConnected(app)
+        val powerOk = powerSave || gameUsb
         val dnd = controller.dnd
         val brightness = controller.brightness
         val level = controller.owner.level
@@ -281,7 +290,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
         val brightnessOk = brightness.isLow
         val tetherOk = tether.anyActive
-        val allOk = tetherOk && btOff && powerSave && dnd.isActive && brightnessOk
+        val allOk = tetherOk && btOff && powerOk && dnd.isActive && brightnessOk
 
         val hotspotDetail = tether.wifiHotspot?.let { "Activa · interfaz ${it.name} · IP ${it.ipv4}" }
             ?: "Inactiva — toca para abrir «${device.hotspotLabel}»"
@@ -332,8 +341,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             add(
                 StatusRow(
                     "🔋", "Ahorro de energía",
-                    if (powerSave) RowState.OK else RowState.FAIL,
-                    if (powerSave) "Activo" else "Inactivo — toca para activarlo",
+                    if (powerOk) RowState.OK else RowState.FAIL,
+                    when {
+                        gameUsb && !powerSave -> "Desactivado por Modo juego (USB)"
+                        powerSave -> "Activo"
+                        else -> "Inactivo — toca para activarlo"
+                    },
                     SettingsTarget.BATTERY_SAVER,
                 ),
             )
@@ -417,6 +430,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 busy = phase != Phase.IDLE,
                 shizukuState = ShizukuManager.state(app),
                 cycleEnabled = cycleSettings.enabled,
+                gameMode = prefs.gameMode,
                 cycleConfig = cycleSettings.config,
                 batteryUnrestricted = requireNotNull(app.getSystemService(PowerManager::class.java))
                     .isIgnoringBatteryOptimizations(app.packageName),
