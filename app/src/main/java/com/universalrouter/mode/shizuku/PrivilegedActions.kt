@@ -28,7 +28,21 @@ class PrivilegedActions private constructor(private val shell: INetworkShell) {
     fun setBluetooth(enabled: Boolean): Boolean =
         run("cmd bluetooth_manager ${if (enabled) "enable" else "disable"}")
 
-    fun setPowerSave(enabled: Boolean): Boolean = run("cmd power set-mode ${if (enabled) 1 else 0}")
+    /**
+     * En Android 12 PowerManager ignora set-mode mientras el teléfono está
+     * enchufado (el PC lo carga por USB): en ese caso se cambia directamente
+     * Settings.Global.low_power, que el sistema sí aplica. Se verifica al final.
+     */
+    fun setPowerSave(enabled: Boolean): Boolean {
+        val value = if (enabled) 1 else 0
+        run("cmd power set-mode $value")
+        if (lowPower() == value) return true
+        run("settings put global low_power $value && settings put global low_power_sticky $value")
+        Thread.sleep(500)
+        return lowPower() == value
+    }
+
+    private fun lowPower(): Int? = exec("settings get global low_power").second.trim().toIntOrNull()
 
     /** [filter] = NotificationManager.INTERRUPTION_FILTER_*. */
     fun setDnd(filter: Int): Boolean {

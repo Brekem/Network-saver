@@ -93,7 +93,7 @@ En el Release hay **ShizukuAutoStart.exe**, para no tener que pulsar Iniciar en 
 2. Se instala en `%LOCALAPPDATA%\ShizukuAutoStart`, arranca con Windows y queda como icono junto al reloj.
 3. Activa la **Depuración USB** en el teléfono y conéctalo por cable. El programa:
    - descarga ADB (platform-tools oficial de Google) si el PC no lo tiene;
-   - instala **Shizuku** y **Universal Router Mode** en el teléfono si faltan;
+   - instala **Shizuku** y **Universal Router Mode** en el teléfono si faltan, y actualiza la app si hay una versión nueva en el Release;
    - arranca Shizuku cada vez que conectas el teléfono (también después de reiniciarlo).
 4. La primera vez, en Universal Router Mode pulsa **Dar permiso a Shizuku** › Permitir.
 

@@ -24,7 +24,7 @@ using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Shizuku AutoStart")]
 [assembly: System.Reflection.AssemblyProduct("Universal Router Mode")]
-[assembly: System.Reflection.AssemblyVersion("1.4.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.4.1.0")]
 
 static class Program
 {
@@ -188,6 +188,7 @@ class TrayApp : ApplicationContext
     const string PlatformToolsUrl = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip";
     const string ShizukuReleaseApi = "https://api.github.com/repos/RikkaApps/Shizuku/releases/latest";
     const string RouterApkUrl = "https://github.com/Brekem/Network-saver/releases/latest/download/UniversalRouterMode.apk";
+    const string RouterReleaseApi = "https://api.github.com/repos/Brekem/Network-saver/releases/latest";
     const string SamsungDriverUrl = "https://developer.samsung.com/android-usb-driver";
     const int PollMs = 4000;
     const int RetryMs = 30000;
@@ -230,7 +231,7 @@ class TrayApp : ApplicationContext
         foreach (Health h in Enum.GetValues(typeof(Health))) icons[h] = MakeIcon(h);
 
         statusItem = new ToolStripMenuItem("Iniciando…") { Enabled = false };
-        installAppsItem = new ToolStripMenuItem("Instalar Shizuku y Universal Router Mode si faltan")
+        installAppsItem = new ToolStripMenuItem("Instalar y actualizar Shizuku y Universal Router Mode")
         {
             CheckOnClick = true,
             Checked = Settings.InstallApps,
@@ -404,7 +405,8 @@ class TrayApp : ApplicationContext
             if (active.Add(serial))
             {
                 Log("Shizuku activo en " + model);
-                if (Settings.InstallApps) EnsureApp(serial, RouterPkg, "Universal Router Mode", RouterApkUrl);
+                if (Settings.InstallApps && EnsureApp(serial, RouterPkg, "Universal Router Mode", RouterApkUrl))
+                    UpdateRouterApp(serial);
                 if (Settings.AutoActivate) RouterAction(serial, "ACTIVATE", null, "Activar Modo Router");
             }
             return;
@@ -554,6 +556,64 @@ class TrayApp : ApplicationContext
         return false;
     }
 
+    string latestRouterVersion;
+    DateTime latestRouterVersionAt = DateTime.MinValue;
+
+    /// <summary>Versión del último Release (sin la "v"), consultada como mucho una vez por hora.</summary>
+    string LatestRouterVersion()
+    {
+        if (latestRouterVersion != null && (DateTime.Now - latestRouterVersionAt).TotalMinutes < 60) return latestRouterVersion;
+        try
+        {
+            Match m = Regex.Match(DownloadString(RouterReleaseApi), "\"tag_name\"\\s*:\\s*\"v?([0-9.]+)\"");
+            if (m.Success)
+            {
+                latestRouterVersion = m.Groups[1].Value;
+                latestRouterVersionAt = DateTime.Now;
+            }
+        }
+        catch (Exception e)
+        {
+            Log("No se pudo consultar la última versión de la app: " + e.Message);
+        }
+        return latestRouterVersion;
+    }
+
+    /// <summary>
+    /// Actualiza Universal Router Mode si el teléfono tiene una versión anterior al último
+    /// Release. Las versiones antiguas (firmadas con otra clave) se desinstalan antes.
+    /// </summary>
+    void UpdateRouterApp(string serial)
+    {
+        string latest = LatestRouterVersion();
+        Match m = Regex.Match(Shell(serial, "dumpsys package " + RouterPkg + " | grep -m1 versionName", 15000), "versionName=([0-9.]+)");
+        Version have, want;
+        if (latest == null || !m.Success || !Version.TryParse(m.Groups[1].Value, out have) || !Version.TryParse(latest, out want)) return;
+        if (have >= want) return;
+        Log("Universal Router Mode " + have + " → " + want);
+        try
+        {
+            SetStatus(Health.Working, "Actualizando Universal Router Mode a " + want + "…");
+            string apk = Path.Combine(Program.InstallDir, RouterPkg + ".apk");
+            Download(RouterApkUrl, apk);
+            string output = Adb("-s " + serial + " install -r \"" + apk + "\"", 180000);
+            if (output.Contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE"))
+            {
+                Log("Firma antigua: se reinstala desde cero");
+                Adb("-s " + serial + " uninstall " + RouterPkg, 60000);
+                output = Adb("-s " + serial + " install \"" + apk + "\"", 180000);
+            }
+            Log(output.Trim());
+            TryDelete(apk);
+            if (output.Contains("Success"))
+                Balloon("Universal Router Mode actualizado", "Versión " + want + " instalada en el teléfono.", ToolTipIcon.Info);
+        }
+        catch (Exception e)
+        {
+            Log("Error actualizando la app: " + e.Message);
+        }
+    }
+
     string LatestShizukuApkUrl()
     {
         try
@@ -697,7 +757,7 @@ class TrayApp : ApplicationContext
     {
         ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; // TLS 1.2
         var wc = new WebClient();
-        wc.Headers[HttpRequestHeader.UserAgent] = "ShizukuAutoStart/1.4";
+        wc.Headers[HttpRequestHeader.UserAgent] = "ShizukuAutoStart/1.4.1";
         return wc;
     }
 
