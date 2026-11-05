@@ -1,0 +1,21 @@
+UNIVERSAL ROUTER MODE - TETHER INVERTIDO (PC con Windows 10/11)
+===============================================================
+
+Todo el trafico del PC (navegador, Steam, juegos TCP y UDP) se envia a la app
+del telefono, que lo abre por los datos moviles como uso normal del telefono.
+
+PASOS
+1. En el telefono abre Universal Router Mode y activa "Tether invertido".
+   La app muestra el nombre de la red WiFi y la contrasena.
+2. En el PC conectate a esa red WiFi (DIRECT-UR-RouterMode).
+   Windows puede decir "Sin internet": es normal hasta el paso 3.
+3. Doble clic en Iniciar-UniversalRouter.bat y acepta el aviso de administrador.
+4. Deja la ventana negra abierta. Para desconectar, cierrala.
+
+SI NO FUNCIONA
+- La app muestra "Proxy: 192.168.49.1:1080". Si la IP es distinta, abre
+  config.json con el Bloc de notas y cambia "192.168.49.1" por la de la app.
+- Desactiva la Zona WiFi normal del telefono: no hace falta.
+- Si el antivirus bloquea sing-box.exe, permitelo (es de codigo abierto).
+
+sing-box es software libre (GPLv3) de SagerNet: https://github.com/SagerNet/sing-box

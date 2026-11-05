@@ -10,6 +10,8 @@ import com.universalrouter.mode.cycle.CycleConfig
 import com.universalrouter.mode.cycle.CycleSettings
 import com.universalrouter.mode.cycle.NetworkCycleService
 import com.universalrouter.mode.cycle.NetworkCycleState
+import com.universalrouter.mode.reverse.ReverseTetherService
+import com.universalrouter.mode.reverse.ReverseTetherState
 import com.universalrouter.mode.shizuku.ShizukuManager
 import com.universalrouter.mode.shizuku.ShizukuState
 import com.universalrouter.mode.data.DeviceOwnerOptions
@@ -68,6 +70,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             NetworkCycleState.status.collect { status -> _state.update { it.copy(cycleStatus = status) } }
         }
+        viewModelScope.launch {
+            ReverseTetherState.status.collect { status -> _state.update { it.copy(reverse = status) } }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Tether invertido
+    // ------------------------------------------------------------------
+
+    fun setReverseTether(enabled: Boolean) {
+        val app = getApplication<Application>()
+        if (enabled) ReverseTetherService.start(app) else ReverseTetherService.stop(app)
     }
 
     // ------------------------------------------------------------------
@@ -289,17 +303,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val selected = prefs.selectedPackages
 
         val brightnessOk = brightness.isLow
-        val tetherOk = tether.anyActive
+        val reverseOn = ReverseTetherState.isRunning
+        val tetherOk = tether.anyActive || reverseOn
         val allOk = tetherOk && btOff && powerOk && dnd.isActive && brightnessOk
 
         val hotspotDetail = tether.wifiHotspot?.let { "Activa · interfaz ${it.name} · IP ${it.ipv4}" }
             ?: "Inactiva — toca para abrir «${device.hotspotLabel}»"
 
         val rows = buildList {
+            if (reverseOn) {
+                val r = ReverseTetherState.status.value
+                add(
+                    StatusRow(
+                        "🔁", "Tether invertido",
+                        if (r.phase == "Activo") RowState.OK else RowState.FAIL,
+                        if (r.phase == "Activo") "${r.networkName} · ${r.wifiClients} equipo(s) · ${r.proxyAddress}"
+                        else r.error.ifEmpty { r.phase },
+                    ),
+                )
+            }
             add(
                 StatusRow(
                     "📶", "WiFi Hotspot",
-                    if (tether.wifiHotspotActive) RowState.OK else if (tether.usbTetheringActive) RowState.INFO else RowState.FAIL,
+                    if (tether.wifiHotspotActive) RowState.OK else if (tether.usbTetheringActive || reverseOn) RowState.INFO else RowState.FAIL,
                     hotspotDetail, SettingsTarget.WIFI_HOTSPOT,
                 ),
             )

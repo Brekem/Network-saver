@@ -28,6 +28,8 @@ import com.universalrouter.mode.databinding.ItemStatusRowBinding
 import com.universalrouter.mode.domain.PendingAction
 import com.universalrouter.mode.helpers.OemSettingsNavigator
 import com.universalrouter.mode.helpers.TetherMethod
+import com.universalrouter.mode.helpers.TetheringHelper
+import com.universalrouter.mode.reverse.ReverseTetherService
 import com.universalrouter.mode.shizuku.ShizukuManager
 import com.universalrouter.mode.shizuku.ShizukuState
 import rikka.shizuku.Shizuku
@@ -62,6 +64,7 @@ class MainActivity : AppCompatActivity() {
 
         setupListeners()
         setupCycleListeners()
+        setupReverseListeners()
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
 
         lifecycleScope.launch {
@@ -197,6 +200,83 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupReverseListeners() = with(binding) {
+        swReverse.setOnCheckedChangeListener { _, checked ->
+            if (bindingOptions) return@setOnCheckedChangeListener
+            if (!checked) {
+                viewModel.setReverseTether(false)
+                return@setOnCheckedChangeListener
+            }
+            val problem = reverseTetherBlocker()
+            if (problem != null) {
+                bindingOptions = true
+                swReverse.isChecked = false
+                bindingOptions = false
+                Snackbar.make(root, problem, Snackbar.LENGTH_LONG).show()
+                return@setOnCheckedChangeListener
+            }
+            requestNotificationPermission()
+            viewModel.setReverseTether(true)
+        }
+        btnReversePc.setOnClickListener { showPcGuide() }
+    }
+
+    /** Comprueba los requisitos; si falta algo, abre lo necesario y devuelve el motivo. */
+    private fun reverseTetherBlocker(): Int? {
+        val wifi = requireNotNull(applicationContext.getSystemService(android.net.wifi.WifiManager::class.java))
+        if (!wifi.isWifiEnabled) {
+            startActivity(Intent(Settings.Panel.ACTION_WIFI))
+            return R.string.reverse_wifi_off
+        }
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.NEARBY_WIFI_DEVICES
+        } else {
+            Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(permission)
+            return R.string.reverse_need_permission
+        }
+        if (TetheringHelper.status(this).wifiHotspotActive) {
+            viewModel.onHotspotClicked()
+            return R.string.reverse_hotspot_on
+        }
+        return null
+    }
+
+    private fun showPcGuide() {
+        val (name, pass) = ReverseTetherService.credentials(this)
+        val address = viewModel.state.value.reverse.proxyAddress.ifEmpty { "192.168.49.1:${ReverseTetherService.PORT}" }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.reverse_guide_title)
+            .setMessage(getString(R.string.reverse_guide, name, pass, address))
+            .setNegativeButton(R.string.close, null)
+            .setPositiveButton(R.string.reverse_download) { _, _ ->
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PC_DOWNLOAD_URL))) }
+            }
+            .show()
+    }
+
+    private fun renderReverse(state: RouterUiState) = with(binding) {
+        val r = state.reverse
+        swReverse.isChecked = r.running
+        reverseStatus.text = if (!r.running) {
+            getString(R.string.reverse_off)
+        } else buildString {
+            append("Estado: ").append(r.phase)
+            if (r.networkName.isNotEmpty()) {
+                append("\nRed WiFi: ").append(r.networkName)
+                append("\nContraseña: ").append(r.passphrase)
+                append("\nProxy: ").append(r.proxyAddress)
+                append("\nEquipos conectados: ").append(r.wifiClients)
+                append("\nConexiones: ").append(r.tcpConnections).append(" TCP · ").append(r.udpSessions).append(" UDP")
+                append("\n↓ ").append(r.downKbps).append(" KB/s  ↑ ").append(r.upKbps).append(" KB/s  · ")
+                    .append(r.totalMb).append(" MB")
+            }
+            if (r.error.isNotEmpty()) append("\nÚltimo error: ").append(r.error)
+        }
+    }
+
     private fun onShizukuButton() {
         when (viewModel.state.value.shizukuState) {
             ShizukuState.NOT_INSTALLED -> {
@@ -311,6 +391,7 @@ class MainActivity : AppCompatActivity() {
         deviceOwnerOptions.isVisible = state.isDeviceOwner
         bindingOptions = true
         renderCycle(state)
+        renderReverse(state)
         state.deviceOwnerOptions.let {
             swKiosk.isChecked = it.kiosk
             swSuspend.isChecked = it.suspendApps
@@ -452,5 +533,7 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_METHOD = "method"
         // Extra opcional de ACTIVATE: true/false para el Modo juego (se guarda).
         const val EXTRA_GAME = "game"
+        const val PC_DOWNLOAD_URL =
+            "https://github.com/Brekem/Network-saver/releases/latest/download/UniversalRouter-PC.zip"
     }
 }

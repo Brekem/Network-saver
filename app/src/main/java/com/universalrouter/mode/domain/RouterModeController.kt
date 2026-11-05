@@ -18,6 +18,7 @@ import com.universalrouter.mode.helpers.TetherMethod
 import com.universalrouter.mode.shizuku.PrivilegedActions
 import android.app.NotificationManager
 import android.provider.Settings
+import com.universalrouter.mode.reverse.ReverseTetherState
 
 /**
  * Orquesta el Modo Router Total. Cada pasada es idempotente: aplica todo lo
@@ -182,7 +183,9 @@ class RouterModeController(
         }
         val alreadyActive = if (tetherOverride == null) tether.anyActive
         else if (wantUsb) tether.usbTetheringActive else tether.wifiHotspotActive
-        if (alreadyActive) {
+        if (ReverseTetherState.isRunning) {
+            applied += "Tether invertido activo (no hace falta la Zona WiFi)"
+        } else if (alreadyActive) {
             val usbActive = if (tetherOverride == null) tether.usbTetheringActive else wantUsb
             applied += if (usbActive) "USB Tethering activo" else "Zona WiFi activa"
         } else if (priv != null) {

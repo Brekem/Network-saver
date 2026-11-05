@@ -64,6 +64,17 @@ Son restricciones del sistema, no de la app; ninguna app sin root ni firma de si
 - **Ahorro de energía**: no existe API pública para activarlo.
 - **Bluetooth en Android 13+**: `BluetoothAdapter.disable()` no funciona para apps normales.
 
+## Tether invertido por WiFi (sin root)
+
+Con el hotspot normal, el teléfono reenvía los paquetes del PC y la operadora puede detectarlo (TTL, APN de tethering). Con el **tether invertido** la app hace de proxy: el PC le pide las conexiones y es la app quien las abre por los datos móviles, así que salen como uso normal del teléfono (igual que ClockworkMod Tether, pero por WiFi).
+
+- **Teléfono:** la app crea su propia red **WiFi Direct** (`DIRECT-UR-RouterMode`, 5 GHz si es posible; no usa la Zona WiFi del sistema) y un servidor **SOCKS5 con TCP y UDP** en `192.168.49.1:1080`. Las conexiones salen siempre por la red móvil. WiFi en modo baja latencia mientras está activo.
+- **PC (Windows):** `UniversalRouter-PC.zip` del Release incluye [sing-box](https://github.com/SagerNet/sing-box) (software libre) en modo TUN, que manda **todo** el tráfico del PC, juegos UDP incluidos, al proxy del teléfono. Doble clic en `Iniciar-UniversalRouter.bat`.
+- Requisitos: WiFi del teléfono encendido (no hace falta conectarse a ninguna red) y permiso de «Dispositivos cercanos».
+- El refresco 5G/4G y su protección para jugar siguen funcionando: el tráfico del proxy cuenta como tráfico del teléfono.
+
+> Aviso: si el contrato de tu operadora limita o prohíbe compartir datos, usar esta función puede incumplirlo. Es responsabilidad del usuario.
+
 ## Refresco de red 5G/4G (loop infinito, requiere Shizuku)
 
 Toggle **Refresco automático**: cada 30 minutos (ajustable) el teléfono pasa a 4G durante 5 segundos (ajustable) y vuelve a 5G, en bucle infinito y en segundo plano, con la pantalla apagada. Sirve para mantener fresca la conexión que se comparte por hotspot.
@@ -141,6 +152,10 @@ app/src/main/java/com/universalrouter/mode/
 │   ├── TetheringHelper.kt           USB conectado, Zona WiFi, USB tethering
 │   ├── BluetoothHelper.kt · DndHelper.kt · BrightnessHelper.kt
 │   ├── PowerSaverHelper.kt · AppRestrictionHelper.kt
+├── reverse/
+│   ├── ReverseTetherService.kt      WiFi Direct + proxy en primer plano
+│   ├── Socks5Server.kt              SOCKS5 con TCP y UDP (probado en tests)
+│   ├── WifiDirectGroup.kt · CellularUpstream.kt · ReverseTetherState.kt
 ├── cycle/
 │   ├── NetworkCycleService.kt       Loop 5G→4G→5G en primer plano
 │   ├── CycleSettings.kt · NetworkCycleState.kt
@@ -150,4 +165,5 @@ app/src/main/java/com/universalrouter/mode/
 └── admin/
     ├── RouterDeviceAdminReceiver.kt DeviceAdminReceiver
     └── DeviceOwnerManager.kt        Políticas con DevicePolicyManager
+pc/                                  Configuración y lanzador para Windows
 ```

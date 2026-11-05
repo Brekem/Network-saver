@@ -69,4 +69,26 @@
     <string name="shizuku_open">Abrir Shizuku para iniciarlo</string>
     <string name="shizuku_grant">Dar permiso a Shizuku</string>
     <string name="cycle_needs_shizuku">Primero activa Shizuku y dale permiso a la app</string>
+
+    <string name="section_reverse">Tether invertido por WiFi</string>
+    <string name="reverse_toggle">Tether invertido (el PC usa internet como el teléfono)</string>
+    <string name="reverse_pc_guide">Cómo conectar el PC</string>
+    <string name="reverse_off">Apagado. Al encenderlo, el teléfono crea su propia red WiFi y el PC navega y juega a través de la app: para la operadora es uso normal del teléfono.</string>
+    <string name="reverse_wifi_off">Enciende el WiFi del teléfono (no hace falta conectarse a ninguna red) y vuelve a activar el tether invertido</string>
+    <string name="reverse_need_permission">Acepta el permiso de «Dispositivos cercanos» y vuelve a activarlo</string>
+    <string name="reverse_hotspot_on">Apaga la Zona WiFi del sistema: el tether invertido no la necesita y puede impedir crear la red</string>
+    <string name="reverse_guide_title">Conectar el PC (Windows)</string>
+    <string name="reverse_guide">1. En el PC descarga UniversalRouter-PC.zip del Release (botón «Descargar») y descomprímelo.
+
+2. Conecta el PC a la red WiFi:
+    %1$s
+    Contraseña: %2$s
+
+3. Haz doble clic en «Iniciar-UniversalRouter.bat» y acepta el aviso de administrador. Deja esa ventana abierta.
+
+4. Listo: navegador, Steam y juegos (TCP y UDP) salen por el teléfono como uso normal.
+
+Dirección del proxy: %3$s (ya está puesta en config.json).</string>
+    <string name="reverse_download">Descargar</string>
+    <string name="close">Cerrar</string>
 </resources>

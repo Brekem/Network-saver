@@ -3,6 +3,7 @@ package com.universalrouter.mode.ui
 import com.universalrouter.mode.admin.PermissionLevel
 import com.universalrouter.mode.cycle.CycleConfig
 import com.universalrouter.mode.cycle.CycleStatus
+import com.universalrouter.mode.reverse.ReverseTetherStatus
 import com.universalrouter.mode.shizuku.ShizukuState
 import com.universalrouter.mode.data.DeviceOwnerOptions
 import com.universalrouter.mode.helpers.SettingsTarget
@@ -40,6 +41,7 @@ data class RouterUiState(
     val cycleConfig: CycleConfig = CycleConfig(),
     val cycleStatus: CycleStatus = CycleStatus(),
     val batteryUnrestricted: Boolean = false,
+    val reverse: ReverseTetherStatus = ReverseTetherStatus(),
 ) {
     val isDeviceOwner get() = permissionLevel == PermissionLevel.DEVICE_OWNER
 }
